@@ -5,6 +5,11 @@
 .stage.is-letter-mode .sky-atmosphere { opacity: .5; transition: opacity .8s ease; }
 
 .letter-scene {
+  --kraft-light: #c99a62;
+  --kraft-main: #ad7844;
+  --kraft-dark: #76502f;
+  --kraft-edge: #5c3b24;
+  --paper-highlight: #dfba83;
   position: absolute;
   inset: 0;
   z-index: 4;
@@ -24,11 +29,11 @@
   max-width: 92vw;
   margin: 0;
   transform: translateX(-50%);
-  color: #efdfc8;
-  font: 400 clamp(1.25rem, 2.2vw, 1.85rem)/1.5 "Noto Serif SC", "Songti SC", Georgia, serif;
+  color: #f4e4ce;
+  font: 400 clamp(1.25rem, 2.2vw, 1.85rem)/1.5 "STKaiti", "KaiTi", "Noto Serif SC", "Songti SC", "SimSun", serif;
   letter-spacing: .1em;
   text-align: center;
-  text-shadow: 0 2px 12px rgba(14, 9, 6, .45);
+  text-shadow: 0 2px 8px rgba(124, 80, 45, .22), 0 3px 12px rgba(14, 9, 6, .45);
   white-space: nowrap;
   transition: opacity .5s ease, transform .6s ease;
 }
@@ -64,12 +69,23 @@
 }
 .envelope-back {
   z-index: 1;
-  border: 1px solid rgba(106, 66, 28, .35);
+  border: 1px solid rgba(92, 59, 36, .42);
   background:
-    radial-gradient(circle at 27% 31%, rgba(255, 243, 210, .19), transparent 32%),
-    repeating-linear-gradient(18deg, transparent 0 3px, rgba(86, 49, 16, .025) 3px 4px),
-    linear-gradient(145deg, #c39862, #b7874c 58%, #ad7b42);
-  box-shadow: inset 0 0 25px rgba(94, 53, 18, .12);
+    url("./assets/textures/kraft-grain.svg"),
+    radial-gradient(ellipse at 35% 62%, rgba(223, 186, 131, .27), transparent 62%),
+    linear-gradient(145deg, #aa7a47, #8e6038 68%, #76502f);
+  background-blend-mode: soft-light, normal, normal;
+  background-size: 240px 240px, auto, auto;
+  box-shadow: inset 0 0 24px rgba(62, 37, 18, .25), inset 0 1px rgba(242, 213, 166, .32);
+}
+.envelope-back::before {
+  position: absolute;
+  inset: 2px 3px 22%;
+  content: "";
+  clip-path: polygon(0 0, 100% 0, 96% 65%, 50% 91%, 3% 66%);
+  background: radial-gradient(ellipse at 51% 70%, rgba(55, 30, 15, .3), transparent 78%);
+  box-shadow: inset 0 3px 7px rgba(63, 38, 19, .24);
+  pointer-events: none;
 }
 .envelope-peek {
   position: absolute;
@@ -93,9 +109,12 @@
   clip-path: polygon(0 0, 100% 0, 50% 69%);
   transform-origin: center top;
   background:
-    repeating-linear-gradient(17deg, transparent 0 4px, rgba(98, 60, 23, .025) 4px 5px),
-    linear-gradient(166deg, #d8af76, #bb8b51 76%, #a8783e);
-  box-shadow: inset 0 3px 8px rgba(255, 237, 193, .2);
+    url("./assets/textures/kraft-grain.svg"),
+    radial-gradient(ellipse at 42% 15%, rgba(246, 217, 171, .2), transparent 58%),
+    linear-gradient(166deg, var(--paper-highlight), var(--kraft-light) 39%, #b9854c 71%, #926033);
+  background-blend-mode: soft-light, normal, normal;
+  background-size: 220px 220px, auto, auto;
+  box-shadow: inset 0 2px 5px rgba(255, 237, 193, .33);
   transition: transform .75s cubic-bezier(.24,.62,.26,1), z-index 0s linear .42s;
 }
 .letter-scene.is-flap-open .envelope-flap { z-index: 0; transform: rotateX(178deg); }
@@ -103,12 +122,15 @@
   z-index: 3;
   overflow: hidden;
   clip-path: polygon(0 2%, 50% 60%, 100% 2%, 100% 100%, 0 100%);
-  border: 1px solid rgba(110, 67, 27, .24);
+  border: 1px solid rgba(92, 59, 36, .33);
   background:
-    radial-gradient(circle at 72% 72%, rgba(245, 210, 159, .16), transparent 30%),
-    repeating-linear-gradient(25deg, transparent 0 3px, rgba(83, 46, 17, .023) 3px 4px),
-    linear-gradient(160deg, #c69a63, #b58449 65%, #a8753c);
-  box-shadow: inset 0 10px 15px rgba(114, 72, 30, .1), inset 0 -5px 8px rgba(87, 48, 17, .1);
+    url("./assets/textures/kraft-grain.svg"),
+    radial-gradient(ellipse at 48% 67%, rgba(237, 194, 133, .19), transparent 56%),
+    radial-gradient(ellipse at 9% 92%, rgba(81, 47, 23, .16), transparent 38%),
+    linear-gradient(156deg, #c29861, var(--kraft-main) 66%, #996333);
+  background-blend-mode: soft-light, normal, normal, normal;
+  background-size: 240px 240px, auto, auto, auto;
+  box-shadow: inset 0 0 16px rgba(82, 48, 23, .17), inset 0 -2px 4px rgba(67, 37, 17, .25);
 }
 .envelope-front::before, .envelope-front::after {
   position: absolute;
@@ -118,11 +140,44 @@
 }
 .envelope-front::before {
   clip-path: polygon(0 0, 51% 60%, 0 100%);
-  background: linear-gradient(115deg, rgba(240, 200, 144, .22), rgba(88, 47, 17, .05));
+  background: linear-gradient(112deg, rgba(242, 207, 155, .25), rgba(85, 47, 22, .08) 85%);
 }
 .envelope-front::after {
   clip-path: polygon(100% 0, 49% 60%, 100% 100%);
-  background: linear-gradient(250deg, rgba(236, 189, 128, .18), rgba(94, 51, 17, .04));
+  background: linear-gradient(252deg, rgba(236, 190, 129, .18), rgba(81, 43, 19, .12) 84%);
+}
+.envelope-bottom {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  clip-path: polygon(0 100%, 49.8% 58.7%, 100% 100%);
+  background:
+    url("./assets/textures/kraft-grain.svg"),
+    radial-gradient(ellipse at 44% 83%, rgba(237, 197, 141, .18), transparent 53%),
+    linear-gradient(178deg, #b98249 56%, #b5824c 78%, #9c6c3c);
+  background-size: 230px 230px, auto, auto;
+  background-blend-mode: soft-light, normal, normal;
+  pointer-events: none;
+}
+.flap-detail, .envelope-details {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.flap-detail { fill: none; stroke: #9a6936; stroke-width: .75; opacity: .43; }
+.flap-detail .flap-edge { stroke: #704622; stroke-width: .8; opacity: .48; }
+.envelope-details { z-index: 2; fill: none; }
+.fold-crease { stroke: #76502f; stroke-width: .85; opacity: .26; }
+.paper-emboss {
+  stroke: #77512e;
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: .29;
+  filter: drop-shadow(0 1px .2px rgba(235, 196, 140, .38));
 }
 
 .letter-actions {
@@ -137,24 +192,36 @@
 }
 .letter-scene.is-opening .letter-actions { opacity: 0; transform: translate(-50%, 10px); pointer-events: none; }
 .letter-open-button {
+  position: relative;
   min-width: 112px;
   min-height: 44px;
   padding: .55rem 1.15rem;
-  border: 1px solid #d8b789;
-  border-radius: 3px;
-  color: #543717;
+  border: 1px solid #ccaa77;
+  border-radius: 2px 3px 2px 4px;
+  color: #59391f;
   background:
-    repeating-linear-gradient(16deg, transparent 0 4px, rgba(79, 49, 18, .027) 4px 5px),
-    linear-gradient(135deg, #f0d8b4, #d9b684);
-  box-shadow: 0 5px 14px rgba(0, 0, 0, .19), inset 0 1px rgba(255, 250, 229, .6);
-  font: 400 .98rem "Noto Serif SC", "Songti SC", serif;
+    url("./assets/textures/kraft-grain.svg"),
+    radial-gradient(ellipse at 31% 22%, rgba(255, 239, 207, .31), transparent 75%),
+    linear-gradient(132deg, #eed4a9, #d6af77);
+  background-blend-mode: soft-light, normal, normal;
+  background-size: 190px 190px, auto, auto;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .19), inset 0 1px rgba(255, 250, 229, .55), inset 0 -1px rgba(114, 76, 37, .13);
+  font: 400 .98rem "STKaiti", "KaiTi", "Noto Serif SC", "Songti SC", "SimSun", serif;
   letter-spacing: .1em;
   white-space: nowrap;
   cursor: pointer;
-  transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
 }
-.letter-open-button:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0, 0, 0, .23); }
-.letter-open-button:active { transform: translateY(0); }
+.letter-open-button::after {
+  position: absolute;
+  inset: 3px;
+  content: "";
+  border: 1px solid rgba(123, 82, 40, .13);
+  border-radius: 1px 2px 1px 3px;
+  pointer-events: none;
+}
+.letter-open-button:hover { transform: translateY(-2px); filter: brightness(1.055); box-shadow: 0 8px 18px rgba(0, 0, 0, .23); }
+.letter-open-button:active { transform: translateY(1px); filter: brightness(.985); }
 .letter-open-button:focus-visible { outline: 2px solid #f6ddb6; outline-offset: 4px; }
 
 .letter-overlay {

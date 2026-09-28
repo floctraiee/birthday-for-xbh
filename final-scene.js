@@ -14,7 +14,7 @@
   const fireworkColors = ['#ff4f9a','#ff84c1','#ffd54a','#ff8a3d','#62dfff','#57f0c1','#9b7cff','#ffffff'];
   const phases = [
     ['heartGathering', reduced?1.15:2.7],
-    ['heartHolding', reduced?1.45:3.0],
+    ['heartHolding', reduced?2.2:3.8],
     ['heartDissolving', reduced?1.7:3.1],
     ['heartPause', reduced?.28:.55],
     ['firstTextForming', reduced?1.0:1.9],
@@ -146,6 +146,7 @@
       attribute vec4 aStyle;
       attribute vec4 aMotion;
       attribute vec4 aTiming;
+      attribute vec2 aLight;
       uniform vec2 uResolution;
       uniform float uScale;
       uniform float uDpr;
@@ -170,7 +171,7 @@
         vec2 target=uResolution*.5+vec2(rotatedX,aPosition.y)*uScale*perspective;
         vec2 point=target;
         float alpha=aStyle.x,size=aStyle.y;
-        float brightness=1.0;
+        float brightness=1.0+aLight.y;
         if(uMode<.5){
           float progress=clamp((uLocal-aMotion.w)/aTiming.x,0.0,1.0);
           float ease=1.0-pow(1.0-progress,3.0);
@@ -184,19 +185,19 @@
           float twinkle=sin(uTime*aStyle.w+aStyle.z);
           alpha*=1.0+twinkle*aMotion.x;
           size*=1.0+twinkle*aMotion.y;
-          brightness+=twinkle*aMotion.x*.55;
+          brightness*=1.0+twinkle*aLight.x;
           float proximity=1.0-smoothstep(uPointerRadius*.18,uPointerRadius,distance(point,uPointer));
-          float individual=.52+.48*(.5+.5*twinkle);
+          float individual=.15+.85*pow(.5+.5*twinkle,2.0);
           float response=proximity*uPointerPower*individual;
-          alpha*=1.0+response*.11;
-          size*=1.0+response*.045;
-          brightness+=response*.17;
+          alpha*=1.0+response*.10;
+          size*=1.0+response*.04;
+          brightness*=1.0+response*.15;
         }else{
           float progress=clamp((uLocal-aTiming.y)/1.12,0.0,1.0);
           float frozen=sin(uFreezeTime*aStyle.w+aStyle.z);
           alpha*=1.0+frozen*aMotion.x;
           size*=1.0+frozen*aMotion.y;
-          brightness+=frozen*aMotion.x*.55;
+          brightness*=1.0+frozen*aLight.x;
           point.x+=aTiming.w*progress+sin(progress*2.8+aStyle.z)*2.5*progress;
           point.y+=aTiming.z*uFallScale*(.18*progress+.82*progress*progress);
           alpha*=pow(1.0-progress,1.4);
@@ -232,7 +233,7 @@
     if(!gl.getProgramParameter(program,gl.LINK_STATUS)){gl.deleteProgram(program);return false;}
     heartGL=gl;
     heartProgram={program,
-      attributes:['aPosition','aLaunch','aColor','aStyle','aMotion','aTiming'].map(name=>gl.getAttribLocation(program,name)),
+      attributes:['aPosition','aLaunch','aColor','aStyle','aMotion','aTiming','aLight'].map(name=>gl.getAttribLocation(program,name)),
       uniforms:Object.fromEntries(['uResolution','uScale','uDpr','uMode','uLocal','uTime','uYaw','uFallScale','uFreezeTime','uPointer','uPointerPower','uPointerRadius']
         .map(name=>[name,gl.getUniformLocation(program,name)]))};
     gl.viewport(0,0,heartCanvas.width,heartCanvas.height);
@@ -244,22 +245,22 @@
     heartBits.sort((a,b)=>a.fallDelay-b.fallDelay);
     heartFirstActive=0;
     if(!initHeartGL())return;
-    const data=new Float32Array(heartBits.length*21);
+    const data=new Float32Array(heartBits.length*23);
     for(let i=0;i<heartBits.length;i++){
-      const p=heartBits[i],offset=i*21,color=parseInt(p.color.slice(1),16);
+      const p=heartBits[i],offset=i*23,color=parseInt(p.color.slice(1),16);
       data.set([p.x3,p.y3,p.z3,p.fx,p.fy,p.fz,
         (color>>16)/255,((color>>8)&255)/255,(color&255)/255,
         p.base,p.size,p.phase,p.breathSpeed,
         p.breathStrength,p.sizeStrength,p.bend,p.delay,
-        p.duration,p.fallDelay,p.fall,p.drift],offset);
+        p.duration,p.fallDelay,p.fall,p.drift,p.brightnessStrength,p.brightnessOffset],offset);
     }
     if(heartBuffer)heartGL.deleteBuffer(heartBuffer);
     heartBuffer=heartGL.createBuffer();heartGL.bindBuffer(heartGL.ARRAY_BUFFER,heartBuffer);
     heartGL.bufferData(heartGL.ARRAY_BUFFER,data,heartGL.STATIC_DRAW);
-    const sizes=[3,3,3,4,4,4];let offset=0;
+    const sizes=[3,3,3,4,4,4,2];let offset=0;
     heartProgram.attributes.forEach((attribute,i)=>{
       heartGL.enableVertexAttribArray(attribute);
-      heartGL.vertexAttribPointer(attribute,sizes[i],heartGL.FLOAT,false,84,offset*4);
+      heartGL.vertexAttribPointer(attribute,sizes[i],heartGL.FLOAT,false,92,offset*4);
       offset+=sizes[i];
     });
     heartCanvas.hidden=false;
@@ -309,7 +310,7 @@
   }
   function updateHeartPointerPower(dt){
     const target=heartPointer.valid?1:0;
-    const response=target?.11:.16;
+    const response=.11;
     heartPointerPower+=(target-heartPointerPower)*(1-Math.exp(-dt/response));
     if(!target&&heartPointerPower<.025)heartPointerPower=0;
   }
@@ -374,9 +375,14 @@
         fallDelay:(1-clamp((y+1)*.5,0,1))*(reduced?.66:1.83)+Math.random()*(reduced?.08:.15),
         fall:30+Math.random()*90,drift:(Math.random()-.5)*28,
         phase:Math.random()*Math.PI*2,
-        breathSpeed:Math.PI*2/(2+Math.random()*2),
-        breathStrength:.10+Math.random()*.12,
+        breathSpeed:(2.2+Math.random()*2)*(reduced?.75:1),
+        breathStrength:(.16+Math.random()*.14)*(reduced?.8:1),
         sizeStrength:.03+Math.random()*.02});
+      // Derive lighting variation from the existing phase, with no extra random
+      // draws: target sampling, density and all flight paths remain untouched.
+      const particle=heartBits[heartBits.length-1];
+      particle.brightnessStrength=(.12+.13*particle.phase/(Math.PI*2))*(reduced?.8:1);
+      particle.brightnessOffset=Math.sin(particle.phase*1.618)*.035;
     }
     heartGlints=Array.from({length:reduced?24:compact?75:180},()=>{
       const p=heartBits[Math.floor(Math.random()*heartBits.length)];
@@ -402,7 +408,7 @@
       const perspective=cameraDistance/(cameraDistance-rotatedZ*uniformScale);
       const targetX=w*.5+rotatedX*uniformScale*perspective;
       const targetY=h*.5+p.y3*uniformScale*perspective;
-      let x=targetX,y=targetY,alpha=p.base,size=p.size;
+      let x=targetX,y=targetY,alpha=p.base,size=p.size,brightness=1+p.brightnessOffset;
       if(name==='heartGathering'){
         const u=clamp((local-p.delay)/p.duration,0,1);
         if(u<=0)continue;
@@ -416,21 +422,24 @@
         const twinkle=Math.sin(time*p.breathSpeed+p.phase);
         alpha*=1+twinkle*p.breathStrength;
         size*=1+twinkle*p.sizeStrength;
-        p.lastAlpha=alpha;p.lastSize=size;
+        brightness*=1+twinkle*p.brightnessStrength;
+        p.lastAlpha=alpha;p.lastSize=size;p.lastBrightness=brightness;
         if(heartPointerPower){
           const radius=Math.min(w,h)<600?85:110;
           const distance=Math.hypot(x-heartPointer.x,y-heartPointer.y);
           const falloff=1-clamp((distance-radius*.18)/(radius*.82),0,1);
           const smooth=falloff*falloff*(3-2*falloff);
-          const response=smooth*heartPointerPower*(.52+.48*(.5+.5*twinkle));
-          alpha*=1+response*.18;
-          size*=1+response*.045;
+          const response=smooth*heartPointerPower*(.15+.85*Math.pow(.5+.5*twinkle,2));
+          alpha*=1+response*.10;
+          size*=1+response*.04;
+          brightness*=1+response*.15;
         }
       }else{
         const u=clamp((local-p.fallDelay)/1.12,0,1);
         if(u>=1){heartBits[i]=heartBits[heartBits.length-1];heartBits.pop();continue;}
         alpha=p.lastAlpha??p.base;
         size=p.lastSize??p.size;
+        brightness=p.lastBrightness??brightness;
         if(u>0){
           const distance=p.fall*Math.min(1,h/844)*(reduced?.55:1);
           x+=p.drift*u+Math.sin(u*2.8+p.phase)*2.5*u;
@@ -438,7 +447,7 @@
           alpha*=Math.pow(1-u,1.4);size*=1-.76*u;
         }
       }
-      dot(frontCtx,p.color,x,y,size,alpha);
+      dot(frontCtx,p.color,x,y,size,alpha*brightness);
     }
     if(name==='heartHolding')for(const p of heartGlints){
       const pulse=Math.pow((1+Math.sin(time*Math.PI*2/p.period+p.phase))*.5,5);

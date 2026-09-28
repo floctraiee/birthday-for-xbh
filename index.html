@@ -8,7 +8,7 @@
     <title>Happy Birthday</title>
     <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg" />
     <link rel="stylesheet" href="./style.css?v=wish-prompt-4" />
-    <link rel="stylesheet" href="./letter.css?v=letter-3" />
+    <link rel="stylesheet" href="./letter.css?v=letter-4" />
     <link rel="stylesheet" href="./final.css?v=final-5" />
   </head>
   <body>
@@ -57,8 +57,23 @@
         <div id="letter-envelope" class="letter-envelope" aria-label="牛皮纸信封">
           <div class="envelope-back" aria-hidden="true"></div>
           <img id="letter-peek" class="envelope-peek" src="./assets/images/birthday-letter.jpeg" alt="" aria-hidden="true" />
-          <div class="envelope-flap" aria-hidden="true"></div>
-          <div class="envelope-front" aria-hidden="true"></div>
+          <div class="envelope-flap" aria-hidden="true">
+            <svg class="flap-detail" viewBox="0 0 430 259">
+              <path d="M 9,7 L 215,171 L 421,7" />
+              <path class="flap-edge" d="M 4,4 L 215,177 L 426,4" />
+            </svg>
+          </div>
+          <div class="envelope-front" aria-hidden="true">
+            <div class="envelope-bottom"></div>
+            <svg class="envelope-details" viewBox="0 0 430 259">
+              <path class="fold-crease" d="M 2,5 L 215,155 L 428,5 M 2,257 L 215,154 L 428,257" />
+              <g class="paper-emboss" fill="none">
+                <path d="M 23,212 Q 24,232 45,236 M 28,211 Q 32,224 47,227 M 28,221 Q 35,218 39,223 Q 34,229 28,221 M 39,230 Q 45,223 50,230 Q 47,237 39,230" />
+                <path d="M 397,207 Q 394,229 374,235 M 393,214 Q 386,211 384,217 Q 387,223 393,214 M 384,227 Q 377,220 373,227 Q 375,235 384,227" />
+                <path d="M 21,55 L 21,72 M 24,57 L 24,64 M 407,51 L 407,68 M 404,55 L 404,61" />
+              </g>
+            </svg>
+          </div>
         </div>
         <div class="letter-actions">
           <button class="letter-open-button" type="button">打开</button>
@@ -75,6 +90,6 @@
 
     </main>
     <script src="./script.js?v=final-1"></script>
-    <script src="./final-scene.js?v=final-26"></script>
+    <script src="./final-scene.js?v=final-27"></script>
   </body>
 </html>
