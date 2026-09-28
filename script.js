@@ -73,6 +73,7 @@
   ];
   let cakeDrawOrder=[],dustPool=[],flameSparks=[],cakeLastTime=0,dustCredit=0;
   let cakeHighlights=[],cakeGlints=[],nextCakeGlint=0,decorationSeed=1;
+  let cakeSparkleBits=[],cakeSparkles=[],cakeHighlightLayers=[],nextCakeSparkle=0,cakeSparkleSeed=1,cakeGlintLayer=0;
   let cakeScale = 1, cakeDpr = 1;
   const tilt = .28, ct = Math.cos(tilt), st = Math.sin(tilt);
   const cakeOrigin=.69, cakeTop=1.16, candleTop=1.445, flameCenter=1.57;
@@ -196,7 +197,7 @@
   }
   function makeCakeDecorations(){
     decorationSeed=(Math.floor(cakeBits[0].phase*1e9)^0x6b8f25a1)>>>0;
-    cakeHighlights=[];cakeGlints=Array.from({length:reduced?2:5},()=>({bit:null}));nextCakeGlint=0;
+    cakeHighlights=[];cakeGlints=Array.from({length:reduced?2:w<600?4:w>=1600?8:6},()=>({bit:null}));nextCakeGlint=0;
     const rand=decorationRandom,mobile=w<600;
     const frostColors=[['#bdeaff','#fff1f7','#ffd0e5'],['#ffd0e5','#fff1f7','#ff9fc7'],['#ffe0a3','#fff1f7','#ffd0e5']];
     const sugars=['#ff8fbd','#ffd76a','#7fe7ff','#c7a2ff','#fff4dc'];
@@ -273,19 +274,62 @@
       const b=accent(x,y,(rand()-.5)*.35,'floorAccent',sugars[[0,1,2][Math.floor(rand()*3)]],-1,.75+rand()*.35,.86);
       b.floatPeriod=3.8+rand()*3.5;b.floatOffset=rand()*b.floatPeriod;b.lift=.025+rand()*.05;
     }
+    configureCakeSparkles();
+  }
+  function cakeSparkleRandom(){
+    cakeSparkleSeed=(Math.imul(cakeSparkleSeed,1664525)+1013904223)>>>0;
+    return cakeSparkleSeed/4294967296;
+  }
+  function configureCakeSparkles(){
+    // Separate effect RNG: all existing targets, colors and gathering data stay untouched.
+    cakeSparkleSeed=(decorationSeed^0x43b1a75d)>>>0;
+    cakeSparkleBits=[];cakeHighlightLayers=[[],[],[],[]];cakeGlintLayer=0;nextCakeSparkle=0;
+    cakeSparkles=Array.from({length:reduced?2:w<600?6:8},()=>({bit:null}));
+    for(const b of cakeBits){
+      if(!b.decoration||b.kind==='edgeLight')continue;
+      b.period=.7+(b.period-2.2)/1.8*.8;
+      b.breathStrength=.18+(b.breathStrength-.12)/.10*.17;
+      const hash=Math.sin(b.phase*12.9898+b.fromX*78.233)*43758.5453,roll=hash-Math.floor(hash);
+      b.sparkleEligible=roll<.25;b.sparkleStart=-Infinity;b.sparkleLife=.25;
+      b.glowStrength=.25+roll*.20;b.sizeStrength=.06+roll*.06;
+      if(b.sparkleEligible)cakeSparkleBits.push(b);
+      // Favor frosting, pearls and crystals; keep a few tiny near-base stars.
+      b.starEligible=b.starEligible||(b.kind==='frosting'&&roll<.2)
+        ||(b.kind==='sugar'&&roll<.04)||(b.kind==='floorAccent'&&roll<.35);
+      if(b.starEligible)cakeHighlightLayers[b.level<0?3:b.level].push(b);
+    }
+  }
+  function pickCakeFlash(bits,seconds,startKey,lifeKey){
+    for(let attempt=0;attempt<16;attempt++){
+      const b=bits[Math.floor(cakeSparkleRandom()*bits.length)];
+      if(b&&seconds-b[startKey]>b[lifeKey]+.12)return b;
+    }
+    return null;
   }
   function updateCakeAccents(t,elapsed){
     const seconds=t/1000;
     for(const slot of cakeGlints)if(slot.bit&&seconds-slot.bit.glintStart>=slot.bit.glintLife)slot.bit=null;
-    if(elapsed>2.35&&seconds>=nextCakeGlint){
-      let count=reduced?1:2+(decorationRandom()<.3?1:0);
+    for(const slot of cakeSparkles)if(slot.bit&&seconds-slot.bit.sparkleStart>=slot.bit.sparkleLife)slot.bit=null;
+    if(elapsed>2.45&&seconds>=nextCakeGlint){
+      let count=reduced?1:w<600?3+Math.floor(cakeSparkleRandom()*2):4+Math.floor(cakeSparkleRandom()*3);
       for(const slot of cakeGlints){
         if(slot.bit||count===0)continue;
-        const bit=cakeHighlights[Math.floor(decorationRandom()*cakeHighlights.length)];
-        if(!bit||elapsed<bit.delay+bit.duration||seconds-bit.glintStart<bit.glintLife+.2)continue;
-        slot.bit=bit;bit.glintStart=seconds;bit.glintLife=.25+decorationRandom()*.30;count--;
+        const level=cakeSparkleRandom()<.08?3:cakeGlintLayer++%3;
+        const bit=pickCakeFlash(cakeHighlightLayers[level],seconds,'glintStart','glintLife');
+        if(!bit||elapsed<bit.delay+bit.duration)continue;
+        slot.bit=bit;bit.glintStart=seconds;bit.glintLife=.18+cakeSparkleRandom()*.22;count--;
       }
-      nextCakeGlint=seconds+(reduced?2.3:.4+decorationRandom()*.8);
+      nextCakeGlint=seconds+(reduced?2.3:.15+cakeSparkleRandom()*.25);
+    }
+    if(elapsed>2.45&&seconds>=nextCakeSparkle){
+      let count=reduced?1:w<600?4+Math.floor(cakeSparkleRandom()*3):4+Math.floor(cakeSparkleRandom()*5);
+      for(const slot of cakeSparkles){
+        if(slot.bit||count===0)continue;
+        const bit=pickCakeFlash(cakeSparkleBits,seconds,'sparkleStart','sparkleLife');
+        if(!bit||elapsed<bit.delay+bit.duration)continue;
+        slot.bit=bit;bit.sparkleStart=seconds;bit.sparkleLife=.15+cakeSparkleRandom()*.20;count--;
+      }
+      nextCakeSparkle=seconds+(reduced?2.7:.3+cakeSparkleRandom()*.5);
     }
     for(const b of cakeBits){
       if(b.kind!=='edgeLight')continue;
@@ -427,6 +471,8 @@
       const bodyStrength=.05+b.phase*.007957747;
       const twinkle=ambient?(reduced?.72:.46+.54*pulse):activeTwinkle&&b.decoration
         ?1+softPulse*b.breathStrength:surface&&activeTwinkle?.94*(1+softPulse*bodyStrength):1;
+      const lively=activeTwinkle&&b.decoration&&b.kind!=='edgeLight';
+      const glowGain=lively?.82*(1+softPulse*b.glowStrength):1;
       const sway=flame&&!reduced?Math.sin(t/620)*2.1+Math.sin(t/1030+.8)*.6:Math.sin(t/1600+b.phase)*(ambient&&!reduced?b.drift:.45);
       const ease=1-Math.pow(1-progress,3);
       let x=b.tx,y=b.ty;
@@ -445,10 +491,12 @@
       const glintAge=b.decoration?(seconds-b.glintStart)/b.glintLife:-1;
       const highlight=b.decoration&&glintAge>=0&&glintAge<1
         ?Math.min(1,glintAge/.16)*Math.pow(1-glintAge,.65):0;
-      const size=b.size*(w<600?3:3.6)*(flame?1.12:1)*(1+highlight*.045);
+      const sparkleAge=b.sparkleEligible?(seconds-b.sparkleStart)/b.sparkleLife:-1;
+      const fastFlash=sparkleAge>=0&&sparkleAge<1?Math.pow(Math.sin(Math.PI*sparkleAge),4):0;
+      const size=b.size*(w<600?3:3.6)*(flame?1.12:1)*(1+highlight*.045)*(lively?1+softPulse*b.sizeStrength:1);
       const flameGlow=flame?(reduced?1:.86+.13*Math.sin(t/510)+flameFlash*.38+(flameHot?.16:0)):1;
       const hoverGlow=b.decoration&&b.level===2&&flameHot?1.07:1;
-      const alpha=clamp((orbit||flame?progress:Math.min(1,progress*5))*b.brightness*twinkle*(orbit?b.visibility:1)*flameGlow*accentFade*hoverGlow*(1+highlight*.2),0,1);
+      const alpha=clamp((orbit||flame?progress:Math.min(1,progress*5))*b.brightness*twinkle*glowGain*(orbit?b.visibility:1)*flameGlow*accentFade*hoverGlow*(1+highlight*.2),0,1);
       // Short analytic history: redraw fresh each frame; no persistent canvas pixels.
       if(progress<1&&!ambient&&!orbit&&!flame&&!reduced){
         for(let j=3;j>0;j--){
@@ -459,11 +507,17 @@
       }
       cctx.globalAlpha=alpha;
       cctx.drawImage(b.sprite,x-size/2,y-size/2,size,size);
-      const ambientStar=ambient&&!reduced&&b.starEligible&&pulse>.94&&ambientStars<5-activeGlints;
+      if(fastFlash>0){
+        const coreSize=size*.72;
+        cctx.globalAlpha=alpha*fastFlash*.65;
+        cctx.drawImage(b.sprite,x-coreSize/2,y-coreSize/2,coreSize,coreSize);
+      }
+      const ambientStar=ambient&&!reduced&&b.starEligible&&pulse>.94&&ambientStars<cakeGlints.length-activeGlints;
       if(b.starSprite&&(highlight>0||ambientStar)){
         if(ambientStar)ambientStars++;
-        cctx.globalAlpha=alpha*(ambientStar?(pulse-.94)/.06*.55:highlight*.82);
-        const starSize=size*(ambientStar?2:2.8);
+        cctx.globalAlpha=ambientStar?alpha*(pulse-.94)/.06*.55
+          :Math.min(b.brightness,1)*highlight*.95*accentFade;
+        const starSize=ambientStar?size*2:Math.min((w<600?7:8)+size*.8,w<600?10:13);
         cctx.drawImage(b.starSprite,x-starSize/2,y-starSize/2,starSize,starSize);
       }
     }
@@ -485,7 +539,7 @@
     if(state!==Scene.SECOND_WAIT)return;
     state=Scene.SECOND_LEAVING;stage.classList.add('is-second-leaving');hint.classList.remove('is-visible');
     cancelAnimationFrame(cakeRaf);cakeEvents.abort();clearTimeout(toastTimer);
-    cakeBits=[];cakeDrawOrder=[];dustPool=[];flameSparks=[];cakeHighlights=[];cakeGlints=[];nextCakeGlint=0;cakeSprites.clear();dustCredit=0;cakeLastTime=0;
+    cakeBits=[];cakeDrawOrder=[];dustPool=[];flameSparks=[];cakeHighlights=[];cakeGlints=[];cakeSparkleBits=[];cakeSparkles=[];cakeHighlightLayers=[];nextCakeGlint=0;nextCakeSparkle=0;cakeSprites.clear();dustCredit=0;cakeLastTime=0;
     setTimeout(()=>{cctx.clearRect(0,0,cake.width,cake.height);cake.hidden=true;cakeScene.hidden=true;beginLetter();},reduced?350:1050);
   }
   const letterTimers=new Set();
