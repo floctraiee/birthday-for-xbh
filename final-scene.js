@@ -81,13 +81,26 @@
       frontCtx.globalAlpha=1;frontCtx.globalCompositeOperation='source-over';
     }
   }
-  // The parametric curve defines only the outer boundary. Interior positions
-  // are independently sampled from its enclosed area, never scaled copies.
+  // One continuous half-boundary, mirrored at the notch and rounded base.
+  // Shared tangent directions keep the lobes, shoulders and lower arcs smooth.
+  // These are fixed model coordinates; viewport fitting remains uniform.
+  const heartHalfCurves=[
+    [[0,-.58],[-.14,-.58],[-.35,-1],[-.62,-1]],
+    [[-.62,-1],[-.84,-1],[-1,-.72],[-1,-.32]],
+    [[-1,-.32],[-1,.08],[-.84,.31],[-.58,.56]],
+    [[-.58,.56],[-.32,.81],[-.16,.89],[0,.89]]
+  ];
+  // This curve defines only the single outer polygon. Interior positions are
+  // independently sampled from its enclosed area, never scaled copies.
   function getHeartPoint(t){
-    const x=16*Math.pow(Math.sin(t),3);
-    const y=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);
-    const normalizedX=x/16;
-    return {x:Math.sign(normalizedX)*Math.pow(Math.abs(normalizedX),.78),y:(-y-2.5384)/14.4616};
+    const angle=((t%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
+    const half=(angle<=Math.PI?angle:Math.PI*2-angle)/Math.PI;
+    const segment=Math.min(heartHalfCurves.length-1,Math.floor(half*heartHalfCurves.length));
+    const u=half*heartHalfCurves.length-segment,v=1-u;
+    const [a,b,c,d]=heartHalfCurves[segment];
+    const x=v*v*v*a[0]+3*v*v*u*b[0]+3*v*u*u*c[0]+u*u*u*d[0];
+    const y=v*v*v*a[1]+3*v*v*u*b[1]+3*v*u*u*c[1]+u*u*u*d[1];
+    return {x:angle<=Math.PI?x:-x,y};
   }
   function buildHeartPolygon(){
     const points=Array.from({length:256},(_,i)=>getHeartPoint(i*Math.PI*2/256));
