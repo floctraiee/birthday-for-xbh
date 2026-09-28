@@ -197,7 +197,7 @@
   }
   function makeCakeDecorations(){
     decorationSeed=(Math.floor(cakeBits[0].phase*1e9)^0x6b8f25a1)>>>0;
-    cakeHighlights=[];cakeGlints=Array.from({length:reduced?2:w<600?4:w>=1600?8:6},()=>({bit:null}));nextCakeGlint=0;
+    cakeHighlights=[];cakeGlints=Array.from({length:reduced?2:w<600?5:7},()=>({bit:null}));nextCakeGlint=0;
     const rand=decorationRandom,mobile=w<600;
     const frostColors=[['#bdeaff','#fff1f7','#ffd0e5'],['#ffd0e5','#fff1f7','#ff9fc7'],['#ffe0a3','#fff1f7','#ffd0e5']];
     const sugars=['#ff8fbd','#ffd76a','#7fe7ff','#c7a2ff','#fff4dc'];
@@ -286,11 +286,16 @@
     cakeSparkleBits=[];cakeHighlightLayers=[[],[],[],[]];cakeGlintLayer=0;nextCakeSparkle=0;
     cakeSparkles=Array.from({length:reduced?2:w<600?6:8},()=>({bit:null}));
     for(const b of cakeBits){
+      if(b.kind==='ambient'&&b.starEligible){
+        b.glintStart=-Infinity;b.glintLife=.4;b.glintAvailableAt=0;
+        cakeHighlightLayers[3].push(b);
+      }
       if(!b.decoration||b.kind==='edgeLight')continue;
       b.period=.7+(b.period-2.2)/1.8*.8;
       b.breathStrength=.18+(b.breathStrength-.12)/.10*.17;
       const hash=Math.sin(b.phase*12.9898+b.fromX*78.233)*43758.5453,roll=hash-Math.floor(hash);
       b.sparkleEligible=roll<.25;b.sparkleStart=-Infinity;b.sparkleLife=.25;
+      b.glintAvailableAt=0;
       b.glowStrength=.25+roll*.20;b.sizeStrength=.06+roll*.06;
       if(b.sparkleEligible)cakeSparkleBits.push(b);
       // Favor frosting, pearls and crystals; keep a few tiny near-base stars.
@@ -299,27 +304,50 @@
       if(b.starEligible)cakeHighlightLayers[b.level<0?3:b.level].push(b);
     }
   }
-  function pickCakeFlash(bits,seconds,startKey,lifeKey){
+  function pickCakeFlash(bits,seconds,startKey,lifeKey,cooldownKey=null){
     for(let attempt=0;attempt<16;attempt++){
       const b=bits[Math.floor(cakeSparkleRandom()*bits.length)];
-      if(b&&seconds-b[startKey]>b[lifeKey]+.12)return b;
+      if(b&&seconds-b[startKey]>b[lifeKey]+.12&&(!cooldownKey||seconds>=b[cooldownKey]))return b;
     }
     return null;
+  }
+  function cakeGlintAlpha(bit,seconds){
+    const age=seconds-bit.glintStart;
+    if(age<0||age>=bit.glintLife)return 0;
+    if(age<bit.glintRise)return 1-Math.pow(1-age/bit.glintRise,3);
+    if(age<bit.glintRise+bit.glintHold)return 1;
+    const u=clamp((age-bit.glintRise-bit.glintHold)/bit.glintFade,0,1);
+    return 1-(u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2);
   }
   function updateCakeAccents(t,elapsed){
     const seconds=t/1000;
     for(const slot of cakeGlints)if(slot.bit&&seconds-slot.bit.glintStart>=slot.bit.glintLife)slot.bit=null;
     for(const slot of cakeSparkles)if(slot.bit&&seconds-slot.bit.sparkleStart>=slot.bit.sparkleLife)slot.bit=null;
     if(elapsed>2.45&&seconds>=nextCakeGlint){
-      let count=reduced?1:w<600?3+Math.floor(cakeSparkleRandom()*2):4+Math.floor(cakeSparkleRandom()*3);
+      // Small overlapping batches leave room for new stars while older ones gently fade.
+      let active=0;for(const slot of cakeGlints)if(slot.bit)active++;
+      let count=reduced?1:active===0?(w<600?3:4):w<600?(active<3?2:1):active>=5?1:2;
+      let created=0;
       for(const slot of cakeGlints){
         if(slot.bit||count===0)continue;
         const level=cakeSparkleRandom()<.08?3:cakeGlintLayer++%3;
-        const bit=pickCakeFlash(cakeHighlightLayers[level],seconds,'glintStart','glintLife');
+        const bit=pickCakeFlash(cakeHighlightLayers[level],seconds,'glintStart','glintLife','glintAvailableAt');
         if(!bit||elapsed<bit.delay+bit.duration)continue;
-        slot.bit=bit;bit.glintStart=seconds;bit.glintLife=.18+cakeSparkleRandom()*.22;count--;
+        bit.glintRise=.08+cakeSparkleRandom()*.07;
+        bit.glintHold=.18+cakeSparkleRandom()*.14;
+        const minFade=Math.max(.28,.55-bit.glintRise-bit.glintHold);
+        const maxFade=Math.min(.45,.9-bit.glintRise-bit.glintHold);
+        bit.glintFade=minFade+cakeSparkleRandom()*(maxFade-minFade);
+        slot.bit=bit;bit.glintStart=seconds;bit.glintLife=bit.glintRise+bit.glintHold+bit.glintFade;
+        bit.glintAvailableAt=seconds+bit.glintLife+1+cakeSparkleRandom();count--;created++;
       }
-      nextCakeGlint=seconds+(reduced?2.3:.15+cakeSparkleRandom()*.25);
+      nextCakeGlint=seconds+(reduced?2.3:.2+cakeSparkleRandom()*.25);
+      // A full pool retries as soon as a slot finishes; never cut a star's lifetime short.
+      if(!reduced&&created===0){
+        let earliest=Infinity;
+        for(const slot of cakeGlints)if(slot.bit)earliest=Math.min(earliest,slot.bit.glintStart+slot.bit.glintLife);
+        nextCakeGlint=Math.min(nextCakeGlint,earliest+.001);
+      }
     }
     if(elapsed>2.45&&seconds>=nextCakeSparkle){
       let count=reduced?1:w<600?4+Math.floor(cakeSparkleRandom()*3):4+Math.floor(cakeSparkleRandom()*5);
@@ -458,9 +486,7 @@
     for(const b of cakeBits)if(b.kind==='orbit')updateOrbit(b,elapsed);
     updateCakeAccents(t,elapsed);
     cakeDrawOrder.sort((a,b)=>a.depth-b.depth);
-    let ambientStars=0,activeGlints=0;
     const activeTwinkle=!reduced&&elapsed>2.45,seconds=t/1000;
-    for(const slot of cakeGlints)if(slot.bit)activeGlints++;
     for(const b of cakeDrawOrder){
       const progress=clamp((elapsed-b.delay)/b.duration,0,1);
       if(progress===0)continue;
@@ -488,9 +514,7 @@
         const u=((elapsed-2.45+b.floatOffset+b.floatPeriod)%b.floatPeriod)/b.floatPeriod;
         y-=u*b.lift*cakeScale;accentFade=Math.pow(Math.sin(Math.PI*u),1.5);
       }
-      const glintAge=b.decoration?(seconds-b.glintStart)/b.glintLife:-1;
-      const highlight=b.decoration&&glintAge>=0&&glintAge<1
-        ?Math.min(1,glintAge/.16)*Math.pow(1-glintAge,.65):0;
+      const highlight=b.decoration||(ambient&&b.starEligible)?cakeGlintAlpha(b,seconds):0;
       const sparkleAge=b.sparkleEligible?(seconds-b.sparkleStart)/b.sparkleLife:-1;
       const fastFlash=sparkleAge>=0&&sparkleAge<1?Math.pow(Math.sin(Math.PI*sparkleAge),4):0;
       const size=b.size*(w<600?3:3.6)*(flame?1.12:1)*(1+highlight*.045)*(lively?1+softPulse*b.sizeStrength:1);
@@ -512,12 +536,9 @@
         cctx.globalAlpha=alpha*fastFlash*.65;
         cctx.drawImage(b.sprite,x-coreSize/2,y-coreSize/2,coreSize,coreSize);
       }
-      const ambientStar=ambient&&!reduced&&b.starEligible&&pulse>.94&&ambientStars<cakeGlints.length-activeGlints;
-      if(b.starSprite&&(highlight>0||ambientStar)){
-        if(ambientStar)ambientStars++;
-        cctx.globalAlpha=ambientStar?alpha*(pulse-.94)/.06*.55
-          :Math.min(b.brightness,1)*highlight*.95*accentFade;
-        const starSize=ambientStar?size*2:Math.min((w<600?7:8)+size*.8,w<600?10:13);
+      if(b.starSprite&&highlight>0){
+        cctx.globalAlpha=ambient?alpha*highlight*.55:Math.min(b.brightness,1)*highlight*.95*accentFade;
+        const starSize=ambient?size*2:Math.min((w<600?7:8)+size*.8,w<600?10:13);
         cctx.drawImage(b.starSprite,x-starSize/2,y-starSize/2,starSize,starSize);
       }
     }
