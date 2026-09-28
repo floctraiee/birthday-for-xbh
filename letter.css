@@ -1,0 +1,216 @@
+/* A quiet paper interlude. The night sky remains underneath, slightly dimmed. */
+.stage.is-letter-mode { overflow: clip; }
+.stage.is-letter-mode::before { opacity: .33; transition: opacity .8s ease; }
+.stage.is-letter-mode .twinkling-stars { opacity: .46; transition: opacity .8s ease; }
+.stage.is-letter-mode .sky-atmosphere { opacity: .5; transition: opacity .8s ease; }
+
+.letter-scene {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .7s ease;
+}
+.letter-scene[hidden], .letter-overlay[hidden] { display: none; }
+.letter-scene.is-visible { opacity: 1; }
+.letter-scene.is-leaving { opacity: 0; }
+
+.letter-intro {
+  position: absolute;
+  top: 19%;
+  left: 50%;
+  width: max-content;
+  max-width: 92vw;
+  margin: 0;
+  transform: translateX(-50%);
+  color: #efdfc8;
+  font: 400 clamp(1.25rem, 2.2vw, 1.85rem)/1.5 "Noto Serif SC", "Songti SC", Georgia, serif;
+  letter-spacing: .1em;
+  text-align: center;
+  text-shadow: 0 2px 12px rgba(14, 9, 6, .45);
+  white-space: nowrap;
+  transition: opacity .5s ease, transform .6s ease;
+}
+.letter-scene.is-opening .letter-intro { opacity: 0; transform: translate(-50%, -12px); }
+.letter-scene.has-been-opened .letter-intro,
+.letter-scene.has-been-opened .letter-actions { opacity: 0; pointer-events: none; }
+
+.letter-envelope {
+  position: absolute;
+  top: 55%;
+  left: 50%;
+  width: min(72vw, 430px);
+  aspect-ratio: 1.66;
+  perspective: 950px;
+  transform: translate(-50%, -50%) rotate(-1.2deg);
+  transform-origin: center;
+  filter: drop-shadow(0 22px 22px rgba(0, 0, 0, .32));
+  pointer-events: auto;
+  cursor: default;
+  transition: top .7s cubic-bezier(.22,.72,.26,1), transform .7s cubic-bezier(.22,.72,.26,1), filter .7s ease, opacity .4s ease;
+}
+.letter-scene.is-opening .letter-envelope {
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(0deg) scale(1.08);
+  filter: drop-shadow(0 27px 28px rgba(0, 0, 0, .36));
+}
+.letter-scene.is-reading .letter-envelope { opacity: 0; }
+.envelope-back, .envelope-front, .envelope-flap {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  backface-visibility: visible;
+}
+.envelope-back {
+  z-index: 1;
+  border: 1px solid rgba(106, 66, 28, .35);
+  background:
+    radial-gradient(circle at 27% 31%, rgba(255, 243, 210, .19), transparent 32%),
+    repeating-linear-gradient(18deg, transparent 0 3px, rgba(86, 49, 16, .025) 3px 4px),
+    linear-gradient(145deg, #c39862, #b7874c 58%, #ad7b42);
+  box-shadow: inset 0 0 25px rgba(94, 53, 18, .12);
+}
+.envelope-peek {
+  position: absolute;
+  z-index: 2;
+  top: 8%;
+  left: 14%;
+  display: block;
+  width: 72%;
+  height: auto;
+  opacity: 0;
+  transform: translateY(35%) scale(.95);
+  transform-origin: center bottom;
+  box-shadow: 0 3px 9px rgba(36, 22, 9, .14);
+  transition: transform .9s cubic-bezier(.2,.72,.2,1), opacity .25s ease;
+  pointer-events: none;
+}
+.letter-scene.is-letter-rising .envelope-peek { opacity: 1; transform: translateY(-44%) scale(1); }
+.letter-scene.is-reading .envelope-peek { opacity: 0; }
+.envelope-flap {
+  z-index: 4;
+  clip-path: polygon(0 0, 100% 0, 50% 69%);
+  transform-origin: center top;
+  background:
+    repeating-linear-gradient(17deg, transparent 0 4px, rgba(98, 60, 23, .025) 4px 5px),
+    linear-gradient(166deg, #d8af76, #bb8b51 76%, #a8783e);
+  box-shadow: inset 0 3px 8px rgba(255, 237, 193, .2);
+  transition: transform .75s cubic-bezier(.24,.62,.26,1), z-index 0s linear .42s;
+}
+.letter-scene.is-flap-open .envelope-flap { z-index: 0; transform: rotateX(178deg); }
+.envelope-front {
+  z-index: 3;
+  overflow: hidden;
+  clip-path: polygon(0 2%, 50% 60%, 100% 2%, 100% 100%, 0 100%);
+  border: 1px solid rgba(110, 67, 27, .24);
+  background:
+    radial-gradient(circle at 72% 72%, rgba(245, 210, 159, .16), transparent 30%),
+    repeating-linear-gradient(25deg, transparent 0 3px, rgba(83, 46, 17, .023) 3px 4px),
+    linear-gradient(160deg, #c69a63, #b58449 65%, #a8753c);
+  box-shadow: inset 0 10px 15px rgba(114, 72, 30, .1), inset 0 -5px 8px rgba(87, 48, 17, .1);
+}
+.envelope-front::before, .envelope-front::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+}
+.envelope-front::before {
+  clip-path: polygon(0 0, 51% 60%, 0 100%);
+  background: linear-gradient(115deg, rgba(240, 200, 144, .22), rgba(88, 47, 17, .05));
+}
+.envelope-front::after {
+  clip-path: polygon(100% 0, 49% 60%, 100% 100%);
+  background: linear-gradient(250deg, rgba(236, 189, 128, .18), rgba(94, 51, 17, .04));
+}
+
+.letter-actions {
+  position: absolute;
+  top: 77%;
+  left: 50%;
+  display: flex;
+  gap: clamp(.65rem, 2vw, 1.25rem);
+  transform: translateX(-50%);
+  pointer-events: auto;
+  transition: opacity .45s ease, transform .5s ease;
+}
+.letter-scene.is-opening .letter-actions { opacity: 0; transform: translate(-50%, 10px); pointer-events: none; }
+.letter-open-button {
+  min-width: 112px;
+  min-height: 44px;
+  padding: .55rem 1.15rem;
+  border: 1px solid #d8b789;
+  border-radius: 3px;
+  color: #543717;
+  background:
+    repeating-linear-gradient(16deg, transparent 0 4px, rgba(79, 49, 18, .027) 4px 5px),
+    linear-gradient(135deg, #f0d8b4, #d9b684);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .19), inset 0 1px rgba(255, 250, 229, .6);
+  font: 400 .98rem "Noto Serif SC", "Songti SC", serif;
+  letter-spacing: .1em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.letter-open-button:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0, 0, 0, .23); }
+.letter-open-button:active { transform: translateY(0); }
+.letter-open-button:focus-visible { outline: 2px solid #f6ddb6; outline-offset: 4px; }
+
+.letter-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  padding: max(3dvh, 12px) 3vw;
+  background: rgba(3, 8, 19, .68);
+  opacity: 0;
+  transition: opacity .5s ease;
+}
+.letter-overlay.is-visible { opacity: 1; }
+.letter-reader {
+  position: relative;
+  width: min(92vw, 720px, 74dvh);
+  max-height: 90dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y pinch-zoom;
+  opacity: 0;
+  transform: translateY(22px) scale(.92);
+  transition: opacity .55s ease, transform .65s cubic-bezier(.2,.72,.2,1);
+}
+.letter-overlay.is-visible .letter-reader { opacity: 1; transform: translateY(0) scale(1); }
+.letter-reader img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .29);
+}
+.letter-reader img[hidden] { display: none; }
+.letter-load-error {
+  margin: 0;
+  padding: 2rem;
+  color: #eadac5;
+  background: rgba(38, 29, 22, .92);
+  font: 1rem/1.7 "Noto Serif SC", "Songti SC", serif;
+  text-align: center;
+}
+.letter-load-error[hidden] { display: none; }
+.letter-reading-lock { overflow: hidden; }
+
+@media (max-width: 460px) {
+  .letter-intro { top: 18%; font-size: clamp(1.13rem, 4.8vw, 1.35rem); letter-spacing: .05em; }
+  .letter-envelope { width: min(78vw, 340px); top: 54%; }
+  .letter-scene.is-opening .letter-envelope { top: 50%; }
+  .letter-actions { top: 72%; }
+  .letter-open-button { min-width: 104px; padding-inline: .8rem; font-size: .9rem; }
+  .letter-reader { width: 94vw; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .letter-scene, .letter-intro, .letter-actions, .letter-envelope,
+  .envelope-peek, .envelope-flap, .letter-overlay, .letter-reader { transition-duration: .15s; }
+}

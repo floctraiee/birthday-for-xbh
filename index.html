@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#071225" />
+    <meta name="description" content="生日祝福的夜空烟花开场。" />
+    <title>Happy Birthday</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg" />
+    <link rel="stylesheet" href="./style.css?v=wish-prompt-4" />
+    <link rel="stylesheet" href="./letter.css?v=letter-3" />
+    <link rel="stylesheet" href="./final.css?v=final-5" />
+  </head>
+  <body>
+    <main id="birthday-stage" class="stage" aria-label="生日祝福开场：夜空烟花动画">
+      <canvas id="fireworks" aria-label="蓝黑夜空中缓缓绽放的生日烟花" role="img"></canvas>
+      <div class="sky-atmosphere" aria-hidden="true"></div>
+      <div class="twinkling-stars" aria-hidden="true"></div>
+      <canvas id="cake-particles" aria-label="由冰蓝与蓝紫粒子聚合的生日蛋糕" role="img" hidden></canvas>
+      <canvas id="final-fireworks" aria-label="生日快乐文字后方成批升空绽放的烟花" role="img" hidden></canvas>
+      <canvas id="heart-particles" aria-label="粉色三维粒子爱心" role="img" hidden></canvas>
+      <canvas id="final-particles" aria-label="淡粉色粒子爱心与生日祝福文字" role="img" hidden></canvas>
+
+      <section id="greeting" class="greeting" aria-live="polite" aria-hidden="true">
+        <h1 aria-label="HAPPY BIRTHDAY"><span class="title-wordmark">HAPPY BIRTHDAY</span></h1>
+        <span class="title-star title-star-left" aria-hidden="true">✦</span>
+        <span class="title-star title-star-right" aria-hidden="true">✦</span>
+        <svg class="title-orbit" viewBox="0 0 1000 120" aria-hidden="true" preserveAspectRatio="none">
+          <path d="M 95,82 C 270,111 402,30 560,63 S 808,98 927,37" pathLength="1" />
+        </svg>
+      </section>
+      <p id="continue-hint" class="continue-hint" aria-hidden="true">点击空白处以继续</p>
+      <section id="cake-scene" class="cake-scene" aria-live="polite" hidden>
+        <p class="wish-prompt"><span class="wish-prompt-main">许个愿望吧</span><span class="wish-prompt-note">（点点蜡烛）</span></p>
+        <button id="flame-button" class="flame-button" type="button" aria-label="点按蜡烛火焰，写下愿望"></button>
+      </section>
+
+      <div id="wish-overlay" class="wish-overlay" hidden>
+        <section class="wish-dialog" role="dialog" aria-modal="true" aria-labelledby="wish-title">
+          <button id="wish-close" class="wish-close" type="button" aria-label="关闭许愿窗口">×</button>
+          <div id="wish-form">
+            <h2 id="wish-title">我是阿拉丁，告诉我你的愿望</h2>
+            <textarea id="wish-input" maxlength="100" placeholder="在这里写下你的愿望……" aria-describedby="wish-error"></textarea>
+            <p id="wish-error" class="wish-error" aria-live="polite"></p>
+            <button id="wish-submit" class="wish-submit" type="button">许好了</button>
+          </div>
+          <div id="wish-confirmation" hidden>
+            <p>愿望收到了，希望它会悄悄实现。</p>
+            <button id="wish-exit" class="wish-submit" type="button">退出</button>
+          </div>
+        </section>
+      </div>
+      <p id="wish-toast" class="wish-toast" role="status" aria-live="polite" hidden>许过的愿望就不能改了哦</p>
+
+      <section id="letter-scene" class="letter-scene" aria-label="手写信场景" hidden>
+        <p class="letter-intro">下面是一封信，要打开它吗？</p>
+        <div id="letter-envelope" class="letter-envelope" aria-label="牛皮纸信封">
+          <div class="envelope-back" aria-hidden="true"></div>
+          <img id="letter-peek" class="envelope-peek" src="./assets/images/birthday-letter.jpeg" alt="" aria-hidden="true" />
+          <div class="envelope-flap" aria-hidden="true"></div>
+          <div class="envelope-front" aria-hidden="true"></div>
+        </div>
+        <div class="letter-actions">
+          <button class="letter-open-button" type="button">打开</button>
+          <button class="letter-open-button" type="button">快快打开！</button>
+        </div>
+      </section>
+
+      <div id="letter-overlay" class="letter-overlay" role="dialog" aria-modal="true" aria-label="手写信" aria-description="点击照片旁边的空白处或按 Esc 收回信件" hidden>
+        <div id="letter-reader" class="letter-reader" tabindex="-1">
+          <img id="letter-photo" src="./assets/images/birthday-letter.jpeg" alt="完整的手写生日信照片" />
+          <p id="letter-load-error" class="letter-load-error" role="status" hidden>照片暂时无法加载，请稍后刷新重试。</p>
+        </div>
+      </div>
+
+    </main>
+    <script src="./script.js?v=final-1"></script>
+    <script src="./final-scene.js?v=final-26"></script>
+  </body>
+</html>
