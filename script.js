@@ -16,26 +16,54 @@
   let state=Scene.FIREWORKS, w=0,h=0,dpr=1,fwRaf=0,cakeRaf=0,last=0,started=0,launchIndex=0,hasWished=false,toastTimer=0,cakeStarted=0,flameHot=false;
   let nextFlameFlash=0,flameFlashUntil=0,wishOpening=false;
   let rockets=[], sparks=[], cakeBits=[];
-  const plan=reduced?[200,880,1640,2440]:[400,1250,2300,3400,4550,5500];
+  const mobileOpening=innerWidth<600;
+  // Keep the original launch anchors and the title timing. Extra, smaller
+  // rockets are staggered inside the same three performance windows.
+  const plan=reduced
+    ?(mobileOpening?[200,540,880,1640,2090,2280,2440]:[200,540,880,1640,1770,1900,2160,2300,2440])
+    :(mobileOpening?[400,825,1250,2300,3400,4550,5025,5500]:[400,690,980,1250,2300,2740,3400,4550,4820,5110,5500]);
+  const openingOrder=reduced
+    ?(mobileOpening?[0,7,1,2,3,4,5]:[0,6,1,2,8,3,4,9,5])
+    :(mobileOpening?[0,7,1,2,3,4,8,5]:[0,6,7,1,2,8,3,4,9,10,5]);
+  const openingTargets=[[.18,.27,.84],[.67,.17,1.35],[.81,.43,.76],[.36,.32,.92],[.54,.12,1.43],[.13,.48,.72],
+    [.44,.48,.78],[.89,.23,.70],[.10,.16,.87],[.78,.34,.96],[.31,.18,.74]];
   const colors=[['#159dff','#5ed7ff'],['#14e2d1','#62fff0'],['#9165ff','#c09cff'],['#f05cae','#ff9bca'],['#ffd34d','#ffe99a'],['#ff8650','#ffbc73']];
   const rgba=(hex,a)=>{const v=parseInt(hex.slice(1),16);return `rgba(${v>>16},${(v>>8)&255},${v&255},${clamp(a,0,1)})`;};
-  const track=(o,n=9)=>{o.history.push({x:o.x,y:o.y});if(o.history.length>n)o.history.shift();};
+  const track=(o,n=9)=>{const point=o.history.length>=n?o.history.shift():{};point.x=o.x;point.y=o.y;while(o.history.length>=n)o.history.shift();o.history.push(point);};
   const trail=(ctx,history,color,a,width)=>{for(let i=1;i<history.length;i++){ctx.strokeStyle=rgba(color,a*i/history.length);ctx.lineWidth=width*i/history.length;ctx.beginPath();ctx.moveTo(history[i-1].x,history[i-1].y);ctx.lineTo(history[i].x,history[i].y);ctx.stroke();}};
   class Rocket {
-    constructor(i){const p=[[.18,.27,.84],[.67,.17,1.35],[.81,.43,.76],[.36,.32,.92],[.54,.12,1.43],[.13,.48,.72]][i];this.tx=w*p[0];this.ty=h*p[1];this.x=clamp(this.tx+(Math.random()-.5)*w*.22,w*.1,w*.9);this.y=h+28;this.sx=this.x;this.sy=this.y;this.s=p[2];this.c=colors[i];this.t=0;this.d=(reduced?.9:1.32)+Math.random()*(reduced?.2:.6);this.history=[];}
+    constructor(i){const p=openingTargets[openingOrder[i]];this.tx=w*p[0];this.ty=h*p[1];this.x=clamp(this.tx+(Math.random()-.5)*w*.22,w*.1,w*.9);this.y=h+28;this.sx=this.x;this.sy=this.y;this.s=p[2];this.c=colors[i%colors.length];this.t=0;this.d=(reduced?.9:1.32)+Math.random()*(reduced?.2:.6);this.history=[];}
     update(dt){this.t=Math.min(1,this.t+dt/this.d);const e=1-Math.pow(1-this.t,2.45);this.x=this.sx+(this.tx-this.sx)*e;this.y=this.sy+(this.ty-this.sy)*e;track(this,12);if(this.t>=1)explode(this.x,this.y,this.s,this.c);}
     draw(){trail(fctx,this.history,this.c[1],.5,1.4);fctx.fillStyle='#fffdf2';fctx.shadowBlur=10;fctx.shadowColor=this.c[0];fctx.beginPath();fctx.arc(this.x,this.y,1.8,0,7);fctx.fill();fctx.shadowBlur=0;}
     get dead(){return this.t>=1;}
   }
   class Spark {
     constructor(x,y,a,s,c){this.x=x;this.y=y;this.vx=Math.cos(a)*s;this.vy=Math.sin(a)*s;this.c=c;this.life=0;this.hold=.65+Math.random()*.25;this.max=this.hold+2.6+Math.random()*1.1;this.history=[{x,y}];}
-    update(dt){const fall=Math.max(0,this.life-this.hold), ramp=clamp(fall/.75,0,1);this.x+=this.vx*dt;this.y+=this.vy*dt;this.vx*=Math.exp(-.46*dt);this.vy=this.vy*Math.exp(-.46*dt)+(110+Math.random()*50)*ramp*dt;this.life+=dt;track(this,11);}
+    update(dt){const fall=Math.max(0,this.life-this.hold), ramp=clamp(fall/.75,0,1);this.x+=this.vx*dt;this.y+=this.vy*dt;this.vx*=Math.exp(-.46*dt);this.vy=this.vy*Math.exp(-.46*dt)+(110+Math.random()*50)*ramp*dt;this.life+=dt;track(this,w<600?7:11);}
     draw(){const fall=Math.max(0,this.life-this.hold),a=fall?Math.pow(1-fall/(this.max-this.hold),1.15):1;trail(fctx,this.history,this.c,a*.85,1.45);fctx.fillStyle=rgba(this.c,a);fctx.beginPath();fctx.arc(this.x,this.y,.8*a,0,7);fctx.fill();}
     get dead(){return this.life>=this.max;}
   }
-  function explode(x,y,size,c){for(let i=0,n=Math.round((reduced?25:48)*size);i<n;i++)sparks.push(new Spark(x,y,Math.PI*2*i/n+(Math.random()-.5)*.12,(94+Math.random()*104)*size,Math.random()<.78?c[0]:c[1]));}
+  function explosionCount(size){
+    const mobile=w<600,large=size>1.15;
+    const count=large?(mobile?120:180):size<.8?(mobile?68:100):(mobile?84:124);
+    return reduced?Math.max(large?(mobile?90:140):(mobile?60:90),Math.round(count*.8)):count;
+  }
+  function explode(x,y,size,c){
+    const count=explosionCount(size),angleStep=Math.PI*2/count;
+    for(let i=0;i<count;i++){
+      const angle=angleStep*i+(Math.random()-.5)*angleStep*.7;
+      // Golden-ratio interleaving distributes each radial depth around all
+      // quadrants, without making rings or repeating a handful of spokes.
+      const band=(i*.61803398875)%1;
+      const speed=(band<.60?94+Math.random()*104:band<.88?60+Math.random()*66:25+Math.random()*55)*size;
+      sparks.push(new Spark(x,y,angle,speed,Math.random()<.78?c[0]:c[1]));
+    }
+  }
   function resize(){fctx.clearRect(0,0,fireworks.width,fireworks.height);cctx.clearRect(0,0,cake.width,cake.height);dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;for(const x of [fireworks,cake]){x.width=Math.round(w*dpr);x.height=Math.round(h*dpr);x.style.width=w+'px';x.style.height=h+'px';}fctx.setTransform(dpr,0,0,dpr,0,0);cctx.setTransform(dpr,0,0,dpr,0,0);if(cakeBits.length)layoutCake();}
-  function fireFrame(t){if(!started)started=t;const dt=Math.min(.034,Math.max(.001,(t-(last||t))/1000));last=t;fctx.clearRect(0,0,fireworks.width,fireworks.height);fctx.globalCompositeOperation='lighter';while(launchIndex<plan.length&&t-started>=plan[launchIndex])rockets.push(new Rocket(launchIndex++));rockets.forEach(x=>{x.update(dt);x.draw();});rockets=rockets.filter(x=>!x.dead);sparks.forEach(x=>{x.update(dt);x.draw();});sparks=sparks.filter(x=>!x.dead);fctx.globalCompositeOperation='source-over';if(launchIndex<plan.length||rockets.length||sparks.length)fwRaf=requestAnimationFrame(fireFrame);else fctx.clearRect(0,0,fireworks.width,fireworks.height);}
+  function fireFrame(t){if(!started)started=t;const dt=Math.min(.034,Math.max(.001,(t-(last||t))/1000));last=t;fctx.clearRect(0,0,fireworks.width,fireworks.height);fctx.globalCompositeOperation='lighter';while(launchIndex<plan.length&&t-started>=plan[launchIndex])rockets.push(new Rocket(launchIndex++));
+    for(let i=rockets.length-1;i>=0;i--){const rocket=rockets[i];rocket.update(dt);if(rocket.dead){rocket.history.length=0;rockets[i]=rockets[rockets.length-1];rockets.pop();}else rocket.draw();}
+    for(let i=sparks.length-1;i>=0;i--){const spark=sparks[i];spark.update(dt);if(spark.dead){spark.history.length=0;sparks[i]=sparks[sparks.length-1];sparks.pop();}else spark.draw();}
+    fctx.globalCompositeOperation='source-over';if(launchIndex<plan.length||rockets.length||sparks.length)fwRaf=requestAnimationFrame(fireFrame);else{fctx.clearRect(0,0,fireworks.width,fireworks.height);fwRaf=0;}}
   function beginFirstExit(){if(state!==Scene.FIRST_WAIT)return;state=Scene.FIRST_LEAVING;stage.classList.add('is-first-leaving');greeting.classList.remove('is-visible');hint.classList.remove('is-visible');cancelAnimationFrame(fwRaf);rockets=[];sparks=[];fctx.clearRect(0,0,fireworks.width,fireworks.height);setTimeout(startCake,reduced?260:650);}
   // All cake geometry is invisible sampling data. Only point sprites reach the canvas.
   const cakeSprites = new Map();
