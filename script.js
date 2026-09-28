@@ -72,6 +72,7 @@
     {radius:.72,height:.84,tilt:-.30,speed:.075,phase:2.75,color:'#FFD784'}
   ];
   let cakeDrawOrder=[],dustPool=[],flameSparks=[],cakeLastTime=0,dustCredit=0;
+  let cakeHighlights=[],cakeGlints=[],nextCakeGlint=0,decorationSeed=1;
   let cakeScale = 1, cakeDpr = 1;
   const tilt = .28, ct = Math.cos(tilt), st = Math.sin(tilt);
   const cakeOrigin=.69, cakeTop=1.16, candleTop=1.445, flameCenter=1.57;
@@ -83,7 +84,7 @@
     if(cakeSprites.has(key)) return cakeSprites.get(key);
     const sprite=document.createElement('canvas'); sprite.width=sprite.height=24;
     const g=sprite.getContext('2d'), glow=g.createRadialGradient(12,12,0,12,12,12);
-    glow.addColorStop(0,color); glow.addColorStop(.13,color);
+    glow.addColorStop(0,color); glow.addColorStop(shape==='pearl'?.22:.13,color);
     glow.addColorStop(.3,rgba(color,.65)); glow.addColorStop(.6,rgba(color,.12)); glow.addColorStop(1,rgba(color,0));
     g.fillStyle=glow;g.fillRect(0,0,24,24);
     if(shape==='fleck'){
@@ -93,6 +94,9 @@
       g.fillStyle=rgba(color,.85);g.beginPath();g.moveTo(12,1);g.lineTo(14,10);
       g.lineTo(23,12);g.lineTo(14,14);g.lineTo(12,23);g.lineTo(10,14);
       g.lineTo(1,12);g.lineTo(10,10);g.closePath();g.fill();
+    }else if(shape==='diamond'){
+      g.fillStyle=rgba(color,.8);g.beginPath();g.moveTo(12,7);g.lineTo(15,12);
+      g.lineTo(12,17);g.lineTo(9,12);g.closePath();g.fill();
     }
     cakeSprites.set(key,sprite);return sprite;
   }
@@ -177,12 +181,123 @@
       point(0,0,0,'orbit',orbitSpecs[band].color,0,1.05);
       Object.assign(cakeBits[cakeBits.length-1],{band,u:Math.random(),ribbonOffset:(Math.random()-.5)*.022,delay:2.05,duration:.45});
     }
+    // Append accents without changing any of the original model's target points or RNG sequence.
+    makeCakeDecorations();
     // Rear points first; no wireframe, disks, strokes or visible geometry.
     cakeBits.sort((a,b)=>(a.z3*ct+a.y3*st)-(b.z3*ct+b.y3*st));
     cakeDrawOrder=cakeBits.slice();
     // Cache tiny particle textures once, rather than constructing gradients in the frame loop.
-    for(const b of cakeBits){b.sprite=cakeSprite(b.color,b.material==='fleck'?'fleck':'round');b.starSprite=b.starEligible?cakeSprite(b.color,'star'):null;}
+    for(const b of cakeBits){b.sprite=cakeSprite(b.color,b.material==='fleck'?'fleck':b.material==='crystal'?'diamond':b.kind==='pearl'?'pearl':'round');b.starSprite=b.starEligible?cakeSprite(b.color,'star'):null;}
     layoutCake();
+  }
+  function decorationRandom(){
+    decorationSeed=(Math.imul(decorationSeed,1664525)+1013904223)>>>0;
+    return decorationSeed/4294967296;
+  }
+  function makeCakeDecorations(){
+    decorationSeed=(Math.floor(cakeBits[0].phase*1e9)^0x6b8f25a1)>>>0;
+    cakeHighlights=[];cakeGlints=Array.from({length:reduced?2:5},()=>({bit:null}));nextCakeGlint=0;
+    const rand=decorationRandom,mobile=w<600;
+    const frostColors=[['#bdeaff','#fff1f7','#ffd0e5'],['#ffd0e5','#fff1f7','#ff9fc7'],['#ffe0a3','#fff1f7','#ffd0e5']];
+    const sugars=['#ff8fbd','#ffd76a','#7fe7ff','#c7a2ff','#fff4dc'];
+    function accent(x,y,z,kind,color,level,size,brightness,canGlint=false){
+      const a=rand()*Math.PI*2,r=.26+rand()*.58;
+      const bit={x3:x,y3:y,z3:z,kind,color,level,decoration:true,
+        delay:.18+rand()*.18,duration:1.45+rand()*.35+(rand()<.12?.25:0),
+        phase:rand()*Math.PI*2,period:2.2+rand()*1.8,breathStrength:.12+rand()*.10,
+        material:kind==='crystal'?'crystal':kind==='sugar'&&rand()<.35?'fleck':'round',
+        starEligible:canGlint,depth:z*ct+y*st,peak:0,bend:(rand()-.5)*32,
+        size:size*(.82+rand()*.32),brightness:brightness*(.8+rand()*.2),drift:2,
+        fromX:Math.cos(a)*r,fromY:Math.sin(a)*r,fromDepth:(rand()-.5)*1.8,glintStart:-Infinity,glintLife:.4};
+      cakeBits.push(bit);if(canGlint)cakeHighlights.push(bit);return bit;
+    }
+    for(let level=0;level<cakeOccluders.length;level++){
+      const tier=cakeOccluders[level],height=tier.top-tier.bottom;
+      const colors=frostColors[level],wavePhase=rand()*Math.PI*2;
+      // Only the visible front arc: scattered scallops, not a complete bright ring.
+      const frostingCount=(mobile?[115,98,84]:[225,190,160])[level];
+      for(let i=0;i<frostingCount;i++){
+        const a=.14+rand()*(Math.PI-.28);
+        const wave=.5+.5*Math.sin(a*7.3+wavePhase+.5*Math.sin(a*3.1));
+        const droop=.009+.036*Math.pow(wave,2);
+        const r=tier.radius-.003+rand()*.005;
+        accent(Math.cos(a)*r,tier.top-droop+(rand()-.5)*.017,Math.sin(a)*r,
+          'frosting',colors[Math.floor(rand()*colors.length)],level,.8,.93);
+      }
+      // Irregular pearl/crystal clusters occupy the walls, not equally spaced rows.
+      const sites=mobile?9:12,centers=[];
+      for(let site=0;site<sites;site++){
+        let a,y,x,z,attempt=0;
+        do{
+          a=.18+rand()*(Math.PI-.36);y=tier.bottom+height*(.17+rand()*.60);
+          x=Math.cos(a)*tier.radius;z=Math.sin(a)*tier.radius;attempt++;
+        }while(attempt<30&&centers.some(p=>Math.hypot(x-p.x,(y-p.y)*1.8)<.075));
+        centers.push({x,y});
+        const color=colors[site%colors.length],cluster=2+Math.floor(rand()*3);
+        for(let j=0;j<cluster;j++){
+          const angle=a+(rand()-.5)*.025,yy=y+(rand()-.5)*.02;
+          const b=accent(Math.cos(angle)*tier.radius,yy,Math.sin(angle)*tier.radius,
+            j===0&&site%3===0?'crystal':'pearl',color,level,j===0?1.6:.8,j===0?1.15:.9,j===0);
+          b.site=site;
+        }
+      }
+      // Fine sugar flecks across both the visible wall and exposed top.
+      const sugarCount=(mobile?[48,42,35]:[94,80,68])[level];
+      for(let i=0;i<sugarCount;i++){
+        const a=.07+rand()*(Math.PI-.14),onTop=rand()<.28;
+        const inner=level<2?cakeOccluders[level+1].radius:.07;
+        const r=onTop?Math.sqrt(inner*inner+rand()*(tier.radius*tier.radius-inner*inner)):tier.radius;
+        const y=onTop?tier.top+.003:tier.bottom+rand()*height;
+        const color=rand()<.48?colors[Math.floor(rand()*colors.length)]:sugars[Math.floor(rand()*sugars.length)];
+        accent(Math.cos(a)*r,y,Math.sin(a)*r,'sugar',color,level,.55+rand()*.22,.92);
+      }
+      // One intermittent moving point per tier, limited to a short front-edge segment.
+      const a=.32+rand()*(Math.PI-.9);
+      const b=accent(Math.cos(a)*tier.radius,tier.top-.009,Math.sin(a)*tier.radius,
+        'edgeLight',level===1?'#fff1f7':'#ffe0a3',level,1.25,1.1);
+      Object.assign(b,{edgeAngle:a,edgeSpan:.22+rand()*.12,edgePeriod:6.8+rand()*3.2,edgeOffset:rand()*5});
+    }
+    // Broken, softly scattered highlights near (never over) the candle base.
+    for(let i=0;i<(mobile?32:60);i++){
+      const a=rand()*Math.PI*2,r=.072+Math.pow(rand(),1.8)*.26;
+      accent(Math.cos(a)*r,cakeTop+.005,Math.sin(a)*r,'sugar',rand()<.6?'#fff1f7':'#ffe0a3',2,.6,.87);
+    }
+    for(let site=0;site<4;site++){
+      const a=rand()*Math.PI*2,r=.14+rand()*.14;
+      for(let j=0;j<3;j++)accent(Math.cos(a)*r+(rand()-.5)*.016,cakeTop+.006,
+        Math.sin(a)*r+(rand()-.5)*.016,'crystal',j===0?'#ffe0a3':'#fff1f7',2,j===0?1.1:.65,.95,j===0);
+    }
+    // Extra near-base accents complement, rather than replace, the existing falling dust.
+    for(let i=0;i<(mobile?16:30);i++){
+      const spread=Math.pow(rand(),1.7),x=(rand()-.5)*(1.1+spread*.5),y=-.055-spread*.30;
+      const b=accent(x,y,(rand()-.5)*.35,'floorAccent',sugars[[0,1,2][Math.floor(rand()*3)]],-1,.75+rand()*.35,.86);
+      b.floatPeriod=3.8+rand()*3.5;b.floatOffset=rand()*b.floatPeriod;b.lift=.025+rand()*.05;
+    }
+  }
+  function updateCakeAccents(t,elapsed){
+    const seconds=t/1000;
+    for(const slot of cakeGlints)if(slot.bit&&seconds-slot.bit.glintStart>=slot.bit.glintLife)slot.bit=null;
+    if(elapsed>2.35&&seconds>=nextCakeGlint){
+      let count=reduced?1:2+(decorationRandom()<.3?1:0);
+      for(const slot of cakeGlints){
+        if(slot.bit||count===0)continue;
+        const bit=cakeHighlights[Math.floor(decorationRandom()*cakeHighlights.length)];
+        if(!bit||elapsed<bit.delay+bit.duration||seconds-bit.glintStart<bit.glintLife+.2)continue;
+        slot.bit=bit;bit.glintStart=seconds;bit.glintLife=.25+decorationRandom()*.30;count--;
+      }
+      nextCakeGlint=seconds+(reduced?2.3:.4+decorationRandom()*.8);
+    }
+    for(const b of cakeBits){
+      if(b.kind!=='edgeLight')continue;
+      const clock=Math.max(0,elapsed-2.45)+b.edgeOffset,cycle=Math.floor(clock/b.edgePeriod);
+      if(b.edgeCycle!==cycle){b.edgeCycle=cycle;b.edgeAngle=.32+decorationRandom()*(Math.PI-.9);}
+      const u=(clock%b.edgePeriod)/2.8;
+      const a=b.edgeAngle+b.edgeSpan*clamp(u,0,1),tier=cakeOccluders[b.level];
+      const x=Math.cos(a)*tier.radius,z=Math.sin(a)*tier.radius;
+      b.tx=w*.5+x*cakeScale;b.ty=h*cakeOrigin+(-b.y3*ct+z*st)*cakeScale;
+      b.depth=z*ct+b.y3*st;b.visibility=elapsed>2.45&&u<1&&!reduced
+        ?Math.pow(Math.sin(Math.PI*u),1.5)*clamp((elapsed-2.45)/.45,0,1):0;
+    }
   }
   function layoutCake(){
     cakeScale=Math.min(w*.405,h*.25);
@@ -200,6 +315,11 @@
     const ease=1-Math.pow(1-progress,3),arc=Math.sin(progress*Math.PI)*(1-progress)*b.bend;
     out.x=w*(.5+b.fromX)*(1-ease)+b.tx*ease+arc;
     out.y=h*(.5+b.fromY)*(1-ease)+b.ty*ease-arc*.6;
+    if(b.decoration){
+      const depth=b.fromDepth*(1-ease),perspective=1+depth*.12;
+      out.x=w*.5+(out.x-w*.5)*perspective;
+      out.y=h*.5+(out.y-h*.5+depth*st*cakeScale)*perspective;
+    }
   }
   function updateOrbit(b,seconds){
     const spec=orbitSpecs[b.band],rotation=reduced?0:seconds*spec.speed;
@@ -292,15 +412,21 @@
     }
     const flameFlash=clamp((flameFlashUntil-t)/260,0,1);
     for(const b of cakeBits)if(b.kind==='orbit')updateOrbit(b,elapsed);
+    updateCakeAccents(t,elapsed);
     cakeDrawOrder.sort((a,b)=>a.depth-b.depth);
+    let ambientStars=0,activeGlints=0;
+    const activeTwinkle=!reduced&&elapsed>2.45,seconds=t/1000;
+    for(const slot of cakeGlints)if(slot.bit)activeGlints++;
     for(const b of cakeDrawOrder){
       const progress=clamp((elapsed-b.delay)/b.duration,0,1);
       if(progress===0)continue;
       const ambient=b.kind==='ambient',orbit=b.kind==='orbit',flame=b.kind==='flame';
-      const surface=!ambient&&!orbit&&!flame&&b.kind!=='inside';
-      const pulse=Math.pow((1+Math.sin(t/1000*Math.PI*2/b.period+b.phase))/2,b.material==='shimmer'?9:3);
-      const activeTwinkle=!reduced&&elapsed>2.45;
-      const twinkle=ambient?(reduced?.72:.46+.54*pulse):surface&&activeTwinkle?.83+pulse*b.peak:1;
+      const surface=!ambient&&!orbit&&!flame;
+      const softPulse=Math.sin(seconds*Math.PI*2/b.period+b.phase);
+      const pulse=ambient?Math.pow((1+softPulse)/2,b.material==='shimmer'?9:3):0;
+      const bodyStrength=.05+b.phase*.007957747;
+      const twinkle=ambient?(reduced?.72:.46+.54*pulse):activeTwinkle&&b.decoration
+        ?1+softPulse*b.breathStrength:surface&&activeTwinkle?.94*(1+softPulse*bodyStrength):1;
       const sway=flame&&!reduced?Math.sin(t/620)*2.1+Math.sin(t/1030+.8)*.6:Math.sin(t/1600+b.phase)*(ambient&&!reduced?b.drift:.45);
       const ease=1-Math.pow(1-progress,3);
       let x=b.tx,y=b.ty;
@@ -310,10 +436,19 @@
         x+=b.x3*cakeScale*(.09*Math.sin(t/530+.4));
         y-=(b.y3-candleTop)*ct*cakeScale*(.10*Math.sin(t/480+.7)+.025*Math.sin(t/880));
       }
-      const highlight=surface&&activeTwinkle&&b.material==='shimmer'?pulse:0;
-      const size=b.size*(w<600?3:3.6)*(flame?1.12:1)*(1+highlight*.24);
+      let accentFade=1;
+      if(b.kind==='edgeLight')accentFade=b.visibility;
+      if(b.kind==='floorAccent'&&progress===1&&!reduced){
+        const u=((elapsed-2.45+b.floatOffset+b.floatPeriod)%b.floatPeriod)/b.floatPeriod;
+        y-=u*b.lift*cakeScale;accentFade=Math.pow(Math.sin(Math.PI*u),1.5);
+      }
+      const glintAge=b.decoration?(seconds-b.glintStart)/b.glintLife:-1;
+      const highlight=b.decoration&&glintAge>=0&&glintAge<1
+        ?Math.min(1,glintAge/.16)*Math.pow(1-glintAge,.65):0;
+      const size=b.size*(w<600?3:3.6)*(flame?1.12:1)*(1+highlight*.045);
       const flameGlow=flame?(reduced?1:.86+.13*Math.sin(t/510)+flameFlash*.38+(flameHot?.16:0)):1;
-      const alpha=clamp((orbit||flame?progress:Math.min(1,progress*5))*b.brightness*twinkle*(orbit?b.visibility:1)*flameGlow,0,1);
+      const hoverGlow=b.decoration&&b.level===2&&flameHot?1.07:1;
+      const alpha=clamp((orbit||flame?progress:Math.min(1,progress*5))*b.brightness*twinkle*(orbit?b.visibility:1)*flameGlow*accentFade*hoverGlow*(1+highlight*.2),0,1);
       // Short analytic history: redraw fresh each frame; no persistent canvas pixels.
       if(progress<1&&!ambient&&!orbit&&!flame&&!reduced){
         for(let j=3;j>0;j--){
@@ -324,10 +459,12 @@
       }
       cctx.globalAlpha=alpha;
       cctx.drawImage(b.sprite,x-size/2,y-size/2,size,size);
-      const ambientStar=ambient&&!reduced&&b.starEligible&&pulse>.94;
-      if(b.starSprite&&(highlight>.88||ambientStar)){
-        cctx.globalAlpha=alpha*(ambientStar?(pulse-.94)/.06*.55:(highlight-.88)/.12*.6);
-        cctx.drawImage(b.starSprite,x-size,y-size,size*2,size*2);
+      const ambientStar=ambient&&!reduced&&b.starEligible&&pulse>.94&&ambientStars<5-activeGlints;
+      if(b.starSprite&&(highlight>0||ambientStar)){
+        if(ambientStar)ambientStars++;
+        cctx.globalAlpha=alpha*(ambientStar?(pulse-.94)/.06*.55:highlight*.82);
+        const starSize=size*(ambientStar?2:2.8);
+        cctx.drawImage(b.starSprite,x-starSize/2,y-starSize/2,starSize,starSize);
       }
     }
     drawDust(dt,elapsed);
@@ -348,7 +485,7 @@
     if(state!==Scene.SECOND_WAIT)return;
     state=Scene.SECOND_LEAVING;stage.classList.add('is-second-leaving');hint.classList.remove('is-visible');
     cancelAnimationFrame(cakeRaf);cakeEvents.abort();clearTimeout(toastTimer);
-    cakeBits=[];cakeDrawOrder=[];dustPool=[];flameSparks=[];cakeSprites.clear();dustCredit=0;cakeLastTime=0;
+    cakeBits=[];cakeDrawOrder=[];dustPool=[];flameSparks=[];cakeHighlights=[];cakeGlints=[];nextCakeGlint=0;cakeSprites.clear();dustCredit=0;cakeLastTime=0;
     setTimeout(()=>{cctx.clearRect(0,0,cake.width,cake.height);cake.hidden=true;cakeScene.hidden=true;beginLetter();},reduced?350:1050);
   }
   const letterTimers=new Set();
