@@ -9,7 +9,7 @@
   const rearCtx = rear.getContext('2d', {alpha:true});
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
-  const heartColors = ['#ff3f8f','#ff529e','#ff68ac','#ff7fba','#f64088','#ff9ac8'];
+  const heartColors = ['#ff2f87','#ff438f','#ff579d','#ff6aaa','#ff82b8','#ffb3d2','#ffd0e1'];
   const textColors = ['#ffd7e8','#ffb6d5','#ff91bd','#fff1f7','#ffd98a'];
   const fireworkColors = ['#ff4f9a','#ff84c1','#ffd54a','#ff8a3d','#62dfff','#57f0c1','#9b7cff','#ffffff'];
   const phases = [
@@ -26,6 +26,7 @@
     ['finalFireworks', Infinity]
   ];
   const sprites = new Map();
+  const heartSprites = new Map();
   let w=0,h=0,dpr=1,raf=0,startTime=0,lastTime=0,active=false,phaseIndex=-1;
   let heartBits=[],heartGlints=[],textBits=[],rockets=[],sparks=[],launches=[];
   let heldHeartYaw=0;
@@ -81,26 +82,16 @@
       frontCtx.globalAlpha=1;frontCtx.globalCompositeOperation='source-over';
     }
   }
-  // One continuous half-boundary, mirrored at the notch and rounded base.
-  // Shared tangent directions keep the lobes, shoulders and lower arcs smooth.
-  // These are fixed model coordinates; viewport fitting remains uniform.
-  const heartHalfCurves=[
-    [[0,-.58],[-.14,-.58],[-.35,-1],[-.62,-1]],
-    [[-.62,-1],[-.84,-1],[-1,-.72],[-1,-.32]],
-    [[-1,-.32],[-1,.08],[-.84,.31],[-.58,.56]],
-    [[-.58,.56],[-.32,.81],[-.16,.89],[0,.89]]
-  ];
-  // This curve defines only the single outer polygon. Interior positions are
-  // independently sampled from its enclosed area, never scaled copies.
+  // A single classic silhouette, never nested or copied at smaller scales.
+  // Only the terminal tip is shortened smoothly; no round-bottom replacement.
+  // A fixed 3.5% design-height adjustment keeps its model aspect near 1.09.
+  // Viewport projection still uses one uniform scalar for every coordinate.
   function getHeartPoint(t){
-    const angle=((t%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
-    const half=(angle<=Math.PI?angle:Math.PI*2-angle)/Math.PI;
-    const segment=Math.min(heartHalfCurves.length-1,Math.floor(half*heartHalfCurves.length));
-    const u=half*heartHalfCurves.length-segment,v=1-u;
-    const [a,b,c,d]=heartHalfCurves[segment];
-    const x=v*v*v*a[0]+3*v*v*u*b[0]+3*v*u*u*c[0]+u*u*u*d[0];
-    const y=v*v*v*a[1]+3*v*v*u*b[1]+3*v*u*u*c[1]+u*u*u*d[1];
-    return {x:angle<=Math.PI?x:-x,y};
+    const x=16*Math.pow(Math.sin(t),3);
+    let y=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);
+    const tip=clamp((-y-13)/4,0,1);
+    y+=.6*tip*tip*(3-2*tip);
+    return {x:x/16,y:(-y-2.2384)*1.035/16};
   }
   function buildHeartPolygon(){
     const points=Array.from({length:256},(_,i)=>getHeartPoint(i*Math.PI*2/256));
@@ -195,11 +186,13 @@
           alpha*=min(1.0,progress*3.5)*clamp(.85+depth*.08,.64,1.12);
           size*=clamp((4.4/(4.4-depth))/perspective,.58,1.48)*(.78+.22*progress);
         }else if(uMode<1.5){
-          float twinkle=sin(uTime*aStyle.w+aStyle.z);
+          float proximity=1.0-smoothstep(uPointerRadius*.18,uPointerRadius,distance(point,uPointer));
+          float localLight=proximity*uPointerPower;
+          float twinkle=mix(sin(uTime*aStyle.w+aStyle.z),
+            sin(uTime*aStyle.w*1.12+aStyle.z),localLight*.65);
           alpha*=1.0+twinkle*aMotion.x;
           size*=1.0+twinkle*aMotion.y;
           brightness*=1.0+twinkle*aLight.x;
-          float proximity=1.0-smoothstep(uPointerRadius*.18,uPointerRadius,distance(point,uPointer));
           float individual=.15+.85*pow(.5+.5*twinkle,2.0);
           float response=proximity*uPointerPower*individual;
           alpha*=1.0+response*.10;
@@ -219,7 +212,7 @@
         vColor=aColor;
         vAlpha=clamp(alpha,0.0,1.0);
         vBrightness=brightness;
-        gl_PointSize=max(0.0,size*uDpr);
+        gl_PointSize=max(0.0,size*uDpr*1.7);
         gl_Position=vec4(point.x/uResolution.x*2.0-1.0,1.0-point.y/uResolution.y*2.0,0.0,1.0);
       }`;
     const fragmentSource=`
@@ -230,9 +223,14 @@
       void main(){
         float radius=length(gl_PointCoord-vec2(.5))*2.0;
         if(radius>1.0||vAlpha<.008)discard;
-        float light=(1.0-smoothstep(.05,1.0,radius))*(.72+.28*(1.0-radius));
+        // One point sprite combines a saturated core with two small pink halos.
+        // No screen-wide blur or extra render pass can wash out its color.
+        float core=1.0-smoothstep(.02,.34,radius);
+        float middle=.25*(1.0-smoothstep(.10,.70,radius));
+        float halo=.08*(1.0-smoothstep(.30,1.0,radius));
+        float light=min(1.0,core+middle+halo);
         float opacity=vAlpha*light;
-        gl_FragColor=vec4(min(vColor*opacity*vBrightness,vec3(1.0)),opacity);
+        gl_FragColor=vec4(min(vColor*vBrightness,vec3(1.0))*opacity,opacity);
       }`;
     function compile(type,source){
       const shader=gl.createShader(type);gl.shaderSource(shader,source);gl.compileShader(shader);
@@ -250,7 +248,8 @@
       uniforms:Object.fromEntries(['uResolution','uScale','uDpr','uMode','uLocal','uTime','uYaw','uFallScale','uFreezeTime','uPointer','uPointerPower','uPointerRadius']
         .map(name=>[name,gl.getUniformLocation(program,name)]))};
     gl.viewport(0,0,heartCanvas.width,heartCanvas.height);
-    gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
+    // Premultiplied soft glow keeps overlapping pink cores saturated, not white.
+    gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
     gl.clearColor(0,0,0,0);
     return true;
   }
@@ -342,7 +341,7 @@
     gl.uniform1f(uniforms.uFreezeTime,phases[0][1]+phases[1][1]);
     gl.uniform2f(uniforms.uPointer,heartPointer.x,heartPointer.y);
     gl.uniform1f(uniforms.uPointerPower,name==='heartHolding'?heartPointerPower:0);
-    gl.uniform1f(uniforms.uPointerRadius,Math.min(w,h)<600?85:110);
+    gl.uniform1f(uniforms.uPointerRadius,Math.min(w,h)<600?48:65);
     if(name==='heartDissolving')
       while(heartFirstActive<heartBits.length&&heartBits[heartFirstActive].fallDelay+1.12<=local)heartFirstActive++;
     gl.drawArrays(gl.POINTS,heartFirstActive,heartBits.length-heartFirstActive);
@@ -350,12 +349,15 @@
   function makeHeart(){
     heldHeartYaw=0;
     const compact=Math.min(w,h)<600;
-    const count=reduced?(compact?2400:4500):(compact?10000:22000);
+    // Increase only the body by about 1.68x; retain the existing sparse halo.
+    const bodyCount=reduced?(compact?3600:6800):(compact?14800:32560);
+    const haloCount=reduced?(compact?288:540):(compact?1200:2640);
+    const count=bodyCount+haloCount;
     const polygon=buildHeartPolygon();
     const field=buildHeartDistanceField(polygon);
     heartBits=[];
     for(let i=0;i<count;i++){
-      const free=i>=count*.92;
+      const free=i>=bodyCount;
       let x,y,distance;
       do{
         x=(Math.random()-.5)*2.68;
@@ -363,16 +365,21 @@
         const signedDistance=sampleHeartDistance(x,y,field);
         if((signedDistance>0)===free)continue;
         distance=Math.abs(signedDistance);
-        const probability=free?.34*Math.exp(-distance/.14):.18+.72*Math.exp(-distance/.34);
+        // Smooth surface-biased density, with a small nonzero random interior.
+        // No inner contour, center-axis attraction, horizontal split or cutout.
+        const probability=free?.34*Math.exp(-distance/.19):.006+.994*Math.exp(-Math.pow(distance/.21,1.9));
         if(Math.random()>=probability||pointInPolygon(x,y,polygon.points)===free)continue;
         break;
       }while(true);
-      const depthRange=.13+.17*clamp(distance/.7,0,1);
+      const depthRange=free?.12:.12+.14*Math.exp(-distance/.25);
       const z=(Math.random()-.5)*2*depthRange;
       const near=clamp((z+.30)/.60,0,1);
-      const edgeGlow=Math.exp(-distance/.44);
-      const base=(.23+.43*edgeGlow)*(.80+near*.27)*(.80+Math.random()*.37)*(free?.39:1);
-      const color=heartColors[Math.floor(Math.random()*heartColors.length)];
+      const edgeGlow=Math.exp(-distance/.30);
+      const variation=Math.random();
+      const base=free?.12+variation*.24:
+        clamp((.74+.18*edgeGlow)*(.95+near*.05)*(.97+variation*.06),.72,.95);
+      const tone=Math.random();
+      const color=heartColors[tone<.55?1:tone<.75?0:tone<.90?2:tone<.97?4:tone<.985?5:6];
       let fx,fy;
       const side=Math.floor(Math.random()*4);
       if(side===0){fx=-.56-Math.random()*.38;fy=(Math.random()-.5)*1.65;}
@@ -381,20 +388,20 @@
       else{fx=(Math.random()-.5)*1.75;fy=.58+Math.random()*.4;}
       heartBits.push({x3:x,y3:y,z3:z,layer:free?'free':'interior',edgeDistance:distance,
         color,base,
-        size:(compact?3.35:3.65)*(.59+Math.random()*.76)*(.8+near*.28)*(free?.75:1),
+        size:(compact?3.35:3.65)*(.59+Math.random()*.76)*(.8+near*.28)*(free?.75:1.12),
         fx,fy,fz:(Math.random()-.5)*3.7,
         bend:(Math.random()-.5)*.21,delay:Math.random()*(reduced?.24:.66),
         duration:reduced?.7+Math.random()*.17:1.68+Math.random()*.33,
         fallDelay:(1-clamp((y+1)*.5,0,1))*(reduced?.66:1.83)+Math.random()*(reduced?.08:.15),
         fall:30+Math.random()*90,drift:(Math.random()-.5)*28,
         phase:Math.random()*Math.PI*2,
-        breathSpeed:(2.2+Math.random()*2)*(reduced?.75:1),
-        breathStrength:(.16+Math.random()*.14)*(reduced?.8:1),
-        sizeStrength:.03+Math.random()*.02});
-      // Derive lighting variation from the existing phase, with no extra random
-      // draws: target sampling, density and all flight paths remain untouched.
+        breathSpeed:Math.PI*2/(.7+Math.random()*.9)*(reduced?.75:1),
+        breathStrength:(.10+Math.random()*.08)*(reduced?.8:1),
+        sizeStrength:.01+Math.random()*.02});
+      // Derive lighting variation from the existing phase without consuming
+      // additional random values or coupling it to a particle's position.
       const particle=heartBits[heartBits.length-1];
-      particle.brightnessStrength=(.12+.13*particle.phase/(Math.PI*2))*(reduced?.8:1);
+      particle.brightnessStrength=(.20+.14*particle.phase/(Math.PI*2))*(reduced?.8:1);
       particle.brightnessOffset=Math.sin(particle.phase*1.618)*.035;
     }
     heartGlints=Array.from({length:reduced?24:compact?75:180},()=>{
@@ -407,12 +414,32 @@
     uploadHeart();
   }
   function heartScale(){return Math.min(w*.45,h*.335);}
+  function heartDot(ctx,color,x,y,size,alpha){
+    if(alpha<=.008)return;
+    if(!heartSprites.has(color)){
+      const canvas=document.createElement('canvas');canvas.width=canvas.height=48;
+      const ink=canvas.getContext('2d'),gradient=ink.createRadialGradient(24,24,0,24,24,24);
+      // Match the heart-only WebGL profile; text and fireworks retain their sprite.
+      for(let i=0;i<=32;i++){
+        const radius=i/32;
+        const smooth=(a,b)=>{const u=clamp((radius-a)/(b-a),0,1);return u*u*(3-2*u);};
+        const light=Math.min(1,1-smooth(.02,.34)+.25*(1-smooth(.10,.70))+.08*(1-smooth(.30,1)));
+        gradient.addColorStop(radius,rgba(color,light));
+      }
+      ink.fillStyle=gradient;ink.fillRect(0,0,48,48);heartSprites.set(color,canvas);
+    }
+    const diameter=size*1.7;
+    ctx.globalAlpha=clamp(alpha,0,1);
+    ctx.drawImage(heartSprites.get(color),x-diameter*.5,y-diameter*.5,diameter,diameter);
+  }
   function drawHeart(name,local,time,dt){
     const uniformScale=heartScale();
     const yaw=name==='heartHolding'&&!reduced?
       (heldHeartYaw=Math.sin(local*.5)*.046):name==='heartDissolving'?heldHeartYaw:0;
     const cosine=Math.cos(yaw),sine=Math.sin(yaw);
     if(name==='heartHolding')updateHeartPointerPower(dt);
+    const composite=frontCtx.globalCompositeOperation;
+    if(!heartBuffer)frontCtx.globalCompositeOperation='source-over';
     if(heartBuffer)drawHeartGL(name,local,time,uniformScale,yaw);
     else for(let i=heartBits.length-1;i>=0;i--){
       const p=heartBits[i],rotatedX=p.x3*cosine+p.z3*sine;
@@ -432,16 +459,18 @@
         alpha*=Math.min(1,u*3.5)*clamp(.85+depth*.08,.64,1.12);
         size*=clamp((4.4/(4.4-depth))/perspective,.58,1.48)*(.78+.22*u);
       }else if(name==='heartHolding'){
-        const twinkle=Math.sin(time*p.breathSpeed+p.phase);
+        const radius=Math.min(w,h)<600?48:65;
+        const distance=Math.hypot(x-heartPointer.x,y-heartPointer.y);
+        const falloff=1-clamp((distance-radius*.18)/(radius*.82),0,1);
+        const smooth=falloff*falloff*(3-2*falloff);
+        const localLight=smooth*heartPointerPower;
+        const wave=Math.sin(time*p.breathSpeed+p.phase);
+        const twinkle=wave+(Math.sin(time*p.breathSpeed*1.12+p.phase)-wave)*localLight*.65;
         alpha*=1+twinkle*p.breathStrength;
         size*=1+twinkle*p.sizeStrength;
         brightness*=1+twinkle*p.brightnessStrength;
         p.lastAlpha=alpha;p.lastSize=size;p.lastBrightness=brightness;
         if(heartPointerPower){
-          const radius=Math.min(w,h)<600?85:110;
-          const distance=Math.hypot(x-heartPointer.x,y-heartPointer.y);
-          const falloff=1-clamp((distance-radius*.18)/(radius*.82),0,1);
-          const smooth=falloff*falloff*(3-2*falloff);
           const response=smooth*heartPointerPower*(.15+.85*Math.pow(.5+.5*twinkle,2));
           alpha*=1+response*.10;
           size*=1+response*.04;
@@ -460,8 +489,9 @@
           alpha*=Math.pow(1-u,1.4);size*=1-.76*u;
         }
       }
-      dot(frontCtx,p.color,x,y,size,alpha*brightness);
+      heartDot(frontCtx,p.color,x,y,size,alpha*brightness);
     }
+    frontCtx.globalCompositeOperation=composite;
     if(name==='heartHolding')for(const p of heartGlints){
       const pulse=Math.pow((1+Math.sin(time*Math.PI*2/p.period+p.phase))*.5,5);
       dot(frontCtx,p.color,w*.5+p.x*uniformScale,h*.5+p.y*uniformScale,p.size,.06+pulse*.35);
