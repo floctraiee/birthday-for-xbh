@@ -14,7 +14,7 @@
   const fireworkColors = ['#ff4f9a','#ff84c1','#ffd54a','#ff8a3d','#62dfff','#57f0c1','#9b7cff','#ffffff'];
   const phases = [
     ['heartGathering', reduced?1.15:2.7],
-    ['heartHolding', reduced?2.2:3.8],
+    ['heartHolding', reduced?1.8:3.1],
     ['heartDissolving', reduced?1.7:3.1],
     ['heartPause', reduced?.28:.55],
     ['firstTextForming', reduced?1.0:1.9],
